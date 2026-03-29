@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId;
+
+      allow read, update, delete: if request.auth != null
+        && request.auth.uid == userId;
+
+      match /settings/{docId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId;
+      }
+
+      match /costEntries/{entryId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId;
+      }
+
+      match /budgetLimits/{budgetId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId;
+      }
+    }
+  }
+}

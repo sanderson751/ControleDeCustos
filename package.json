@@ -1,0 +1,40 @@
+{
+  "name": "controle-de-custos",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "jest --config jest.config.cjs",
+    "test:watch": "jest --config jest.config.cjs --watch",
+    "test:coverage": "jest --config jest.config.cjs --coverage",
+    "firestore:deploy": "firebase deploy --only firestore:rules,firestore:indexes"
+  },
+  "dependencies": {
+    "@mdi/js": "^7.4.47",
+    "@mdi/react": "^1.6.1",
+    "bootstrap": "^5.3.3",
+    "firebase": "^12.11.0",
+    "firebase-admin": "^13.0.1",
+    "next": "^15.0.0",
+    "next-auth": "^5.0.0-beta.31",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-tooltip": "^5.30.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "typescript": "^5.5.3"
+  }
+}

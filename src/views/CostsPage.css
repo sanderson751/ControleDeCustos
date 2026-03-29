@@ -1,0 +1,33 @@
+.costs-page .form-control,
+.costs-page .form-select {
+  min-height: 50px;
+}
+
+.costs-page .costs-table th {
+  white-space: nowrap;
+}
+
+.costs-page .costs-table td,
+.costs-page .costs-table th {
+  vertical-align: middle;
+}
+
+.costs-page .icon-action-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 767.98px) {
+  .costs-page .btn-group {
+    width: 100%;
+  }
+
+  .costs-page .btn-group .btn {
+    flex: 1;
+  }
+}
