@@ -2,6 +2,13 @@
 
 Este documento define a estrutura de dados que sera criada no Firestore posteriormente para suportar a feature inicial de controle de custos.
 
+## Nota sobre Controle de Acesso
+
+As estruturas definidas neste documento sao acessadas conforme as permissoes de role do usuario (definidas em controle-de-acesso):
+- Admin: leitura e escrita (create, read, update, delete) sem restricoes nas subcolecoes
+- Standard: leitura e escrita (create, read, update, delete) sem restricoes nas subcolecoes
+- Guest: leitura apenas (read-only) em todas as subcolecoes
+
 ## Colecao raiz
 
 - `users` (collection)
@@ -9,6 +16,7 @@ Este documento define a estrutura de dados que sera criada no Firestore posterio
     - `displayName`: string
     - `email`: string
     - `currency`: string (ex.: "BRL")
+    - `role`: string (enum: "admin" | "standard" | "guest") [vide controle-de-acesso]
     - `createdAt`: Timestamp
     - `updatedAt`: Timestamp
 

@@ -1,4 +1,11 @@
 import { FormEvent, useState } from 'react'
+import Icon from '@mdi/react'
+import {
+  mdiAccountCheckOutline,
+  mdiAccountPlusOutline,
+  mdiGoogle,
+  mdiLogin,
+} from '@mdi/js'
 import { User } from 'firebase/auth'
 import {
   friendlyAuthErrorMessage,
@@ -6,6 +13,8 @@ import {
   loginWithGoogle,
   registerWithEmailAndPassword,
 } from '../services/authService'
+
+const BUTTON_ICON_SIZE = 0.9
 
 type LoginPageProps = {
   onAuthenticated: (user: User) => void
@@ -78,7 +87,10 @@ function LoginPage({ onAuthenticated }: LoginPageProps) {
                   }}
                   disabled={isLoadingEmailLogin || isLoadingGoogleLogin}
                 >
-                  Ja tenho conta
+                  <span className="btn-icon-label">
+                    <Icon path={mdiAccountCheckOutline} size={BUTTON_ICON_SIZE} aria-hidden="true" />
+                    Ja tenho conta
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -89,7 +101,10 @@ function LoginPage({ onAuthenticated }: LoginPageProps) {
                   }}
                   disabled={isLoadingEmailLogin || isLoadingGoogleLogin}
                 >
-                  Quero criar conta
+                  <span className="btn-icon-label">
+                    <Icon path={mdiAccountPlusOutline} size={BUTTON_ICON_SIZE} aria-hidden="true" />
+                    Quero criar conta
+                  </span>
                 </button>
               </div>
 
@@ -155,13 +170,20 @@ function LoginPage({ onAuthenticated }: LoginPageProps) {
                     className="btn btn-primary"
                     disabled={isLoadingEmailLogin || isLoadingGoogleLogin}
                   >
-                    {isLoadingEmailLogin
-                      ? isRegisterMode
-                        ? 'Criando conta...'
-                        : 'Entrando...'
-                      : isRegisterMode
-                        ? 'Criar conta'
-                        : 'Entrar'}
+                    <span className="btn-icon-label centered">
+                      <Icon
+                        path={isRegisterMode ? mdiAccountPlusOutline : mdiLogin}
+                        size={BUTTON_ICON_SIZE}
+                        aria-hidden="true"
+                      />
+                      {isLoadingEmailLogin
+                        ? isRegisterMode
+                          ? 'Criando conta...'
+                          : 'Entrando...'
+                        : isRegisterMode
+                          ? 'Criar conta'
+                          : 'Entrar'}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -169,7 +191,10 @@ function LoginPage({ onAuthenticated }: LoginPageProps) {
                     onClick={handleGoogleLogin}
                     disabled={isLoadingEmailLogin || isLoadingGoogleLogin}
                   >
-                    {isLoadingGoogleLogin ? 'Conectando com Google...' : 'Entrar com Google'}
+                    <span className="btn-icon-label centered">
+                      <Icon path={mdiGoogle} size={BUTTON_ICON_SIZE} aria-hidden="true" />
+                      {isLoadingGoogleLogin ? 'Conectando com Google...' : 'Entrar com Google'}
+                    </span>
                   </button>
                 </div>
               </form>

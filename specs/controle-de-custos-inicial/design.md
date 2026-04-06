@@ -8,6 +8,11 @@ A feature sera implementada no frontend React com separacao entre:
 - regras de negocio puras;
 - servico de persistencia no Firestore.
 
+Padrao visual transversal:
+- usar Material Design Icons Community (`@mdi/react` + `@mdi/js`) para controles de navegacao.
+- em menu lateral retraido, apresentar tooltip com `react-tooltip` para manter legibilidade.
+- aplicar controle de acesso: Admin e Standard podem editar/adicionar/remover, Guest apenas visualiza.
+
 ## Modelo de dominio
 
 - CostEntry
@@ -31,6 +36,11 @@ A feature sera implementada no frontend React com separacao entre:
   - NORMAL quando < 80
   - ATENCAO quando >= 80 e < 100
   - ESTOURO quando >= 100
+- permissoes:
+  - Admin: canAdd, canEdit, canDelete (tudo verdadeiro)
+  - Standard: canAdd, canEdit, canDelete (tudo verdadeiro)
+  - Guest: canView apenas (outros false)
+  - Elementos UI de acao devem ser ocultos (nao apenas desabilitados) para usuarios Guest
 
 ## Componentes propostos
 
@@ -45,6 +55,7 @@ A feature sera implementada no frontend React com separacao entre:
 - useCostEntries(month, year)
 - useBudgetLimits(month, year)
 - useMonthlySummary(month, year)
+- useCanAccess(resource='costEntries', action='add|edit|delete') [integrado com controle-de-acesso]
 
 ## Estrategia de persistencia
 
@@ -52,6 +63,7 @@ A feature sera implementada no frontend React com separacao entre:
 - Escritas com `serverTimestamp()` para `createdAt` e `updatedAt`.
 - Leitura por consultas indexadas por `userId`, `year`, `month` e `category`.
 - Estrutura detalhada em `specs/controle-de-custos-inicial/firestore-structure.md`.
+- Controle de acesso aplicado em frontend: botoes e formularios ocultos/habilitados conforme role (integrado com controle-de-acesso).
 
 ## Exemplo de fluxo
 

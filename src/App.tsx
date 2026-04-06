@@ -1,5 +1,14 @@
 import { User } from 'firebase/auth'
 import { useState } from 'react'
+import GlobalAppBar from './components/GlobalAppBar'
+import AppShellSkeleton from './components/AppShellSkeleton'
+import SidebarMenu from './components/SidebarMenu'
+import WelcomeCenter from './components/WelcomeCenter'
+import { UserProfileListPage } from './pages/UserProfileListPage'
+import { useSidebarState } from './hooks/useSidebarState'
+import { useThemeState } from './hooks/useThemeState'
+import './styles/app-shell.css'
+import './pages/UserProfileListPage.css'
 
 type AppProps = {
   user: User
@@ -9,6 +18,13 @@ type AppProps = {
 function App({ user, onLogout }: AppProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState('')
+  const [isUserProfileListOpen, setIsUserProfileListOpen] = useState(false)
+  const { isSidebarCollapsed, isLoadingSidebarPreference, toggleSidebar } = useSidebarState(user.uid)
+  const { themeMode, isLoadingThemePreference, toggleTheme } = useThemeState(user.uid)
+
+  if (isLoadingSidebarPreference || isLoadingThemePreference) {
+    return <AppShellSkeleton />
+  }
 
   async function handleLogout() {
     setLogoutError('')
@@ -24,47 +40,40 @@ function App({ user, onLogout }: AppProps) {
   }
 
   return (
-    <main className="container py-4" data-testid="main-app-screen">
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h1 className="mb-0">Controle de Custos</h1>
-        <button
-          type="button"
-          className="btn btn-outline-danger"
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-        >
-          {isLoggingOut ? 'Saindo...' : 'Sair'}
-        </button>
-      </div>
+    <div className="app-shell" data-theme={themeMode} data-testid="app-shell-root">
+      <GlobalAppBar
+        isSidebarCollapsed={isSidebarCollapsed}
+        themeMode={themeMode}
+        isLoggingOut={isLoggingOut}
+        onToggleSidebar={toggleSidebar}
+        onToggleTheme={toggleTheme}
+        onLogout={handleLogout}
+      />
 
-      <div className="row justify-content-center">
-        <div className="col-12 col-md-8">
-          <div className="card shadow-sm border-0">
-            <div className="card-body">
-              <h2 className="h5 mb-3">Usuario autenticado</h2>
-              <dl className="row mb-4">
-                <dt className="col-sm-4">Nome</dt>
-                <dd className="col-sm-8" data-testid="user-display-name">{user.displayName || 'Nao informado'}</dd>
-                <dt className="col-sm-4">Email</dt>
-                <dd className="col-sm-8" data-testid="user-email">{user.email || 'Nao informado'}</dd>
-                <dt className="col-sm-4">UID</dt>
-                <dd className="col-sm-8 text-break" data-testid="user-uid">{user.uid}</dd>
-              </dl>
-
-              <h2 className="h5">Tela principal</h2>
-              <p className="mb-0 text-muted">
-                Usuario autenticado com sucesso. Esta e a area principal da aplicacao.
-              </p>
+      <div className="app-shell-body">
+        <SidebarMenu
+          userId={user.uid}
+          isCollapsed={isSidebarCollapsed}
+          onUserProfilesClick={() => setIsUserProfileListOpen(true)}
+        />
+        <main className="app-shell-content">
+          {!isUserProfileListOpen ? (
+            <>
+              <WelcomeCenter user={user} />
               {logoutError && (
-                <div role="alert" aria-live="polite" className="alert alert-danger mt-3 mb-0">
-                  {logoutError}
+                <div className="container pb-4">
+                  <div role="alert" aria-live="polite" className="alert alert-danger mb-0">
+                    {logoutError}
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+            </>
+          ) : (
+            <UserProfileListPage onClose={() => setIsUserProfileListOpen(false)} />
+          )}
+        </main>
       </div>
-    </main>
+    </div>
   )
 }
 

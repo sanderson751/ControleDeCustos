@@ -8,6 +8,12 @@ import {
   observeAuthState,
   registerWithEmailAndPassword,
 } from './services/authService'
+import {
+  getThemePreference,
+  getSidebarCollapsedPreference,
+  setThemePreference,
+  setSidebarCollapsedPreference,
+} from './services/uiPreferenceService'
 
 jest.mock('./services/authService', () => ({
   loginWithEmailAndPassword: jest.fn(),
@@ -18,11 +24,22 @@ jest.mock('./services/authService', () => ({
   friendlyAuthErrorMessage: jest.fn(() => 'Email ou senha invalidos.'),
 }))
 
+jest.mock('./services/uiPreferenceService', () => ({
+  getThemePreference: jest.fn(),
+  getSidebarCollapsedPreference: jest.fn(),
+  setThemePreference: jest.fn(),
+  setSidebarCollapsedPreference: jest.fn(),
+}))
+
 const mockedObserveAuthState = jest.mocked(observeAuthState)
 const mockedLoginWithEmailAndPassword = jest.mocked(loginWithEmailAndPassword)
 const mockedLoginWithGoogle = jest.mocked(loginWithGoogle)
 const mockedRegisterWithEmailAndPassword = jest.mocked(registerWithEmailAndPassword)
 const mockedLogout = jest.mocked(logout)
+const mockedGetThemePreference = jest.mocked(getThemePreference)
+const mockedGetSidebarCollapsedPreference = jest.mocked(getSidebarCollapsedPreference)
+const mockedSetThemePreference = jest.mocked(setThemePreference)
+const mockedSetSidebarCollapsedPreference = jest.mocked(setSidebarCollapsedPreference)
 
 function fakeUser(uid: string) {
   return {
@@ -36,6 +53,7 @@ function fakeUser(uid: string) {
 
 describe('App', () => {
   beforeEach(() => {
+    jest.clearAllMocks()
     mockedObserveAuthState.mockImplementation((callback) => {
       callback(null)
       return jest.fn()
@@ -44,6 +62,44 @@ describe('App', () => {
     mockedLoginWithGoogle.mockReset()
     mockedRegisterWithEmailAndPassword.mockReset()
     mockedLogout.mockReset()
+    mockedGetThemePreference.mockResolvedValue(null)
+    mockedGetSidebarCollapsedPreference.mockResolvedValue(null)
+    mockedSetThemePreference.mockResolvedValue(undefined)
+    mockedSetSidebarCollapsedPreference.mockResolvedValue(undefined)
+  })
+
+  it('exibe skeleton enquanto carrega preferencias da interface', async () => {
+    mockedObserveAuthState.mockImplementation((callback) => {
+      callback(fakeUser('uid-skeleton'))
+      return jest.fn()
+    })
+
+    let resolvePreference: (value: boolean | null) => void = () => undefined
+    mockedGetSidebarCollapsedPreference.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreference = resolve
+        }),
+    )
+
+    render(<AuthGate />)
+
+    expect(screen.getByTestId('app-shell-skeleton')).toBeInTheDocument()
+
+    resolvePreference(null)
+
+    expect(await screen.findByTestId('main-app-screen')).toBeInTheDocument()
+  })
+
+  it('aplica tema light como padrao quando nao existe preferencia', async () => {
+    mockedObserveAuthState.mockImplementation((callback) => {
+      callback(fakeUser('uid-theme-default'))
+      return jest.fn()
+    })
+
+    render(<AuthGate />)
+
+    expect(await screen.findByTestId('app-shell-root')).toHaveAttribute('data-theme', 'light')
   })
 
   it('autentica com email e senha e redireciona para tela principal', async () => {
@@ -59,6 +115,8 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByTestId('main-app-screen')).toBeInTheDocument()
     })
+
+    expect(screen.getByText(/dashboard de custos do mes corrente/i)).toBeInTheDocument()
 
     expect(mockedLoginWithEmailAndPassword).toHaveBeenCalledWith(
       'teste@exemplo.com',
@@ -79,6 +137,50 @@ describe('App', () => {
     })
 
     expect(mockedLoginWithGoogle).toHaveBeenCalledTimes(1)
+  })
+
+  it('permite expandir e retrair menu pela appbar global', async () => {
+    const user = userEvent.setup()
+    mockedObserveAuthState.mockImplementation((callback) => {
+      callback(fakeUser('uid-shell'))
+      return jest.fn()
+    })
+
+    render(<AuthGate />)
+
+    const menu = await screen.findByTestId('sidebar-menu')
+    expect(menu).toHaveAttribute('data-collapsed', 'false')
+
+    await user.click(screen.getByRole('button', { name: /retrair menu lateral/i }))
+    expect(menu).toHaveAttribute('data-collapsed', 'true')
+    expect(mockedSetSidebarCollapsedPreference).toHaveBeenLastCalledWith('uid-shell', true)
+
+    await user.click(screen.getByRole('button', { name: /expandir menu lateral/i }))
+    expect(menu).toHaveAttribute('data-collapsed', 'false')
+    expect(mockedSetSidebarCollapsedPreference).toHaveBeenLastCalledWith('uid-shell', false)
+  })
+
+  it('alterna tema pela appbar e persiste preferencia', async () => {
+    const user = userEvent.setup()
+    mockedObserveAuthState.mockImplementation((callback) => {
+      callback(fakeUser('uid-theme'))
+      return jest.fn()
+    })
+
+    render(<AuthGate />)
+
+    const appShell = await screen.findByTestId('app-shell-root')
+    expect(appShell).toHaveAttribute('data-theme', 'light')
+
+    await user.click(screen.getByRole('button', { name: /ativar tema dark/i }))
+
+    expect(appShell).toHaveAttribute('data-theme', 'dark')
+    expect(mockedSetThemePreference).toHaveBeenLastCalledWith('uid-theme', 'dark')
+
+    await user.click(screen.getByRole('button', { name: /ativar tema light/i }))
+
+    expect(appShell).toHaveAttribute('data-theme', 'light')
+    expect(mockedSetThemePreference).toHaveBeenLastCalledWith('uid-theme', 'light')
   })
 
   it('cadastra novo usuario com email e senha e redireciona para tela principal', async () => {
@@ -139,7 +241,7 @@ describe('App', () => {
 
     render(<AuthGate />)
 
-    await user.click(await screen.findByRole('button', { name: /^sair$/i }))
+    await user.click(await screen.findByRole('button', { name: /sair do sistema/i }))
 
     expect(mockedLogout).toHaveBeenCalledTimes(1)
     expect(await screen.findByRole('button', { name: /^entrar$/i })).toBeInTheDocument()

@@ -4,6 +4,10 @@
 
 Implementar autenticacao com Firebase Auth em dois provedores (email/senha e Google), sincronizando dados minimos do usuario no Firestore e redirecionando para a aplicacao principal apos sucesso.
 
+Padrao visual transversal:
+- utilizar Material Design Icons Community (`@mdi/react` + `@mdi/js`) em controles de navegacao globais.
+- quando houver menu retraido, usar tooltip com `react-tooltip` para itens icon-only.
+
 ## Componentes e modulos
 
 - `LoginPage`:
