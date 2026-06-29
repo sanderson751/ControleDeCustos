@@ -48,6 +48,12 @@ function getCostsCollection(userId: string) {
   return adminDb.collection('users').doc(userId).collection('costEntries')
 }
 
+function addMonths(baseDate: Date, monthsToAdd: number) {
+  const nextDate = new Date(baseDate)
+  nextDate.setMonth(nextDate.getMonth() + monthsToAdd)
+  return nextDate
+}
+
 export async function listCurrentMonthCosts(userId: string, year: number, month: number) {
   const snapshot = await getCostsCollection(userId)
     .where('competenceYear', '==', year)
@@ -59,22 +65,58 @@ export async function listCurrentMonthCosts(userId: string, year: number, month:
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
 }
 
-export async function createCostEntry(userId: string, input: NewCostInput) {
-  const effectiveDate = input.createdAtManual ?? new Date()
+export async function listCostsByDateRange(
+  userId: string,
+  startDate: Date,
+  endDate: Date,
+  costType?: CostType,
+) {
+  let query = getCostsCollection(userId)
+    .where('createdAt', '>=', Timestamp.fromDate(startDate))
+    .where('createdAt', '<=', Timestamp.fromDate(endDate))
+    .orderBy('createdAt', 'desc')
 
-  await getCostsCollection(userId).add({
-    userId,
-    accountName: input.accountName.trim(),
-    amount: Number(input.amount),
-    costType: input.costType,
-    installmentsTotal: Math.max(1, Number(input.installmentsTotal ?? 1)),
-    competenceYear: effectiveDate.getFullYear(),
-    competenceMonth: effectiveDate.getMonth() + 1,
-    createdAt: input.createdAtManual
-      ? Timestamp.fromDate(effectiveDate)
-      : FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  })
+  if (costType) {
+    query = query.where('costType', '==', costType)
+  }
+
+  const snapshot = await query.get()
+
+  return snapshot.docs.map((docSnapshot) =>
+    toServerCostEntry(docSnapshot.id, docSnapshot.data() as Partial<CostEntryDoc>),
+  )
+}
+
+export async function createCostEntry(userId: string, input: NewCostInput) {
+  const baseDate = input.createdAtManual ?? new Date()
+  const installmentsTotal =
+    input.costType === 'fixo' ? Math.max(1, Number(input.installmentsTotal ?? 1)) : 1
+  const amount = Number(input.amount)
+  const accountName = input.accountName.trim()
+  const costsCollection = getCostsCollection(userId)
+
+  const writeBatch = adminDb.batch()
+
+  for (let installmentIndex = 0; installmentIndex < installmentsTotal; installmentIndex += 1) {
+    const installmentDate = addMonths(baseDate, installmentIndex)
+    const costDocRef = costsCollection.doc()
+
+    writeBatch.set(costDocRef, {
+      userId,
+      accountName,
+      amount,
+      costType: input.costType,
+      installmentsTotal,
+      competenceYear: installmentDate.getFullYear(),
+      competenceMonth: installmentDate.getMonth() + 1,
+      createdAt: input.createdAtManual
+        ? Timestamp.fromDate(installmentDate)
+        : FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  }
+
+  await writeBatch.commit()
 }
 
 export async function getCostEntryById(userId: string, entryId: string) {
@@ -88,6 +130,9 @@ export async function getCostEntryById(userId: string, entryId: string) {
 }
 
 export async function updateCostEntry(userId: string, entryId: string, updates: UpdateCostInput) {
+  const installmentsTotal =
+    updates.costType === 'fixo' ? Math.max(1, Number(updates.installmentsTotal)) : 1
+
   await getCostsCollection(userId)
     .doc(entryId)
     .set(
@@ -95,7 +140,7 @@ export async function updateCostEntry(userId: string, entryId: string, updates: 
         accountName: updates.accountName.trim(),
         amount: Number(updates.amount),
         costType: updates.costType,
-        installmentsTotal: Math.max(1, Number(updates.installmentsTotal)),
+        installmentsTotal,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },

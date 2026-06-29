@@ -10,8 +10,12 @@ import {
   createCostEntry,
   deleteCostEntry,
   listCurrentMonthCosts,
-  subscribeToCurrentMonthCosts,
 } from '../services/costService'
+import {
+  formatCurrencyBRL,
+  maskCurrencyInput,
+  parseMaskedCurrencyToNumber,
+} from '../lib/currency'
 import { UserRole } from '../types/rolePermission'
 
 type CostsPageProps = {
@@ -52,13 +56,6 @@ function getFirestoreErrorMessage(error: unknown, fallbackMessage: string) {
   return fallbackMessage
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value)
-}
-
 function formatDate(value: Date) {
   return value.toLocaleDateString('pt-BR')
 }
@@ -76,7 +73,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
   const [filter, setFilter] = useState<CostFilter>('todos')
   const [accountName, setAccountName] = useState('')
   const [amount, setAmount] = useState('')
-  const [costType, setCostType] = useState<CostType>('fixo')
+  const [costType, setCostType] = useState<CostType>('variavel')
   const [installmentsTotal, setInstallmentsTotal] = useState('1')
   const [useManualDate, setUseManualDate] = useState(false)
   const [manualDate, setManualDate] = useState(toInputDateValue(new Date()))
@@ -157,15 +154,17 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
       return
     }
 
-    const parsedAmount = Number(amount.replace(',', '.'))
+    const parsedAmount = parseMaskedCurrencyToNumber(amount)
     const parsedInstallments = Number(installmentsTotal)
+    const effectiveInstallmentsTotal =
+      costType === 'fixo' ? parsedInstallments : 1
 
     if (!accountName.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       onStatusChange('warning', 'Preencha conta e valor valido para cadastrar o custo.')
       return
     }
 
-    if (!Number.isInteger(parsedInstallments) || parsedInstallments < 1) {
+    if (costType === 'fixo' && (!Number.isInteger(parsedInstallments) || parsedInstallments < 1)) {
       onStatusChange('warning', 'Total de parcelas deve ser um numero inteiro maior ou igual a 1.')
       return
     }
@@ -177,13 +176,13 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
         accountName,
         amount: parsedAmount,
         costType,
-        installmentsTotal: parsedInstallments,
+        installmentsTotal: effectiveInstallmentsTotal,
         createdAtManual: useManualDate && manualDate ? new Date(`${manualDate}T12:00:00`) : undefined,
       })
 
       setAccountName('')
       setAmount('')
-      setCostType('fixo')
+      setCostType('variavel')
       setInstallmentsTotal('1')
       setUseManualDate(false)
       setManualDate(toInputDateValue(new Date()))
@@ -239,7 +238,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
           <article className="card border-0 shadow-sm h-100">
             <div className="card-body">
               <p className="text-muted mb-1">Custos fixos</p>
-              <h3 className="h5 mb-0">{formatCurrency(monthlyReport.fixedTotal)}</h3>
+              <h3 className="h5 mb-0">{formatCurrencyBRL(monthlyReport.fixedTotal)}</h3>
             </div>
           </article>
         </div>
@@ -247,7 +246,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
           <article className="card border-0 shadow-sm h-100">
             <div className="card-body">
               <p className="text-muted mb-1">Custos variaveis</p>
-              <h3 className="h5 mb-0">{formatCurrency(monthlyReport.variableTotal)}</h3>
+              <h3 className="h5 mb-0">{formatCurrencyBRL(monthlyReport.variableTotal)}</h3>
             </div>
           </article>
         </div>
@@ -255,7 +254,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
           <article className="card border-0 shadow-sm h-100">
             <div className="card-body">
               <p className="text-muted mb-1">Total no mes</p>
-              <h3 className="h5 mb-0">{formatCurrency(monthlyReport.total)}</h3>
+              <h3 className="h5 mb-0">{formatCurrencyBRL(monthlyReport.total)}</h3>
             </div>
           </article>
         </div>
@@ -284,12 +283,12 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                 </label>
                 <input
                   id="cost-amount"
-                  type="number"
+                  type="text"
                   className="form-control"
-                  min="0.01"
-                  step="0.01"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
+                  onChange={(event) => setAmount(maskCurrencyInput(event.target.value))}
                   required
                 />
               </div>
@@ -307,20 +306,22 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                   <option value="variavel">Variavel</option>
                 </select>
               </div>
-              <div className="col-12 col-lg-2">
-                <label className="form-label" htmlFor="cost-installments-total">
-                  Parcelas
-                </label>
-                <input
-                  id="cost-installments-total"
-                  type="number"
-                  min="1"
-                  step="1"
-                  className="form-control"
-                  value={installmentsTotal}
-                  onChange={(event) => setInstallmentsTotal(event.target.value)}
-                />
-              </div>
+              {costType === 'fixo' && (
+                <div className="col-12 col-lg-2">
+                  <label className="form-label" htmlFor="cost-installments-total">
+                    Parcelas
+                  </label>
+                  <input
+                    id="cost-installments-total"
+                    type="number"
+                    min="1"
+                    step="1"
+                    className="form-control"
+                    value={installmentsTotal}
+                    onChange={(event) => setInstallmentsTotal(event.target.value)}
+                  />
+                </div>
+              )}
               <div className="col-12 col-lg-3 d-flex align-items-end">
                 <div className="form-check">
                   <input
@@ -417,7 +418,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                             {entry.costType === 'fixo' ? 'Fixo' : 'Variavel'}
                           </span>
                         </td>
-                        <td>{formatCurrency(entry.amount)}</td>
+                        <td>{formatCurrencyBRL(entry.amount)}</td>
                         <td>{formatDate(entry.createdAt)}</td>
                         <td>{entry.installmentsTotal}</td>
                         {canMutate && (

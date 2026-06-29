@@ -41,6 +41,20 @@
       ]
     },
     {
+      "collectionGroup": "costEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "costType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "budgetLimits",
       "queryScope": "COLLECTION",
       "fields": [

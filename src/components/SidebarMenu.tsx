@@ -49,10 +49,10 @@ const allMenuItems: MenuItem[] = [
   },
   {
     key: 'reports',
-    label: 'Relatorios (em breve)',
+    label: 'Relatorios',
     shortLabel: 'Relat.',
     icon: mdiChartBar,
-    isDisabled: true,
+    isDisabled: false,
     path: '/reports',
   },
   {

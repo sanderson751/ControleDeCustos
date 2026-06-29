@@ -2,6 +2,11 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import { CostType, getCostEntryById, updateCostEntry } from '../services/costService'
+import {
+  maskCurrencyInput,
+  parseMaskedCurrencyToNumber,
+  toMaskedCurrencyFromNumber,
+} from '../lib/currency'
 import { UserRole } from '../types/rolePermission'
 
 type CostEditPageProps = {
@@ -23,7 +28,7 @@ export function CostEditPage({
   const [isSaving, setIsSaving] = useState(false)
   const [accountName, setAccountName] = useState('')
   const [amount, setAmount] = useState('')
-  const [costType, setCostType] = useState<CostType>('fixo')
+  const [costType, setCostType] = useState<CostType>('variavel')
   const [installmentsTotal, setInstallmentsTotal] = useState('1')
   const canMutate = role !== 'guest'
 
@@ -54,7 +59,7 @@ export function CostEditPage({
         }
 
         setAccountName(entry.accountName)
-        setAmount(String(entry.amount))
+        setAmount(toMaskedCurrencyFromNumber(entry.amount))
         setCostType(entry.costType)
         setInstallmentsTotal(String(entry.installmentsTotal))
       } catch {
@@ -83,15 +88,16 @@ export function CostEditPage({
       return
     }
 
-    const parsedAmount = Number(amount.replace(',', '.'))
+    const parsedAmount = parseMaskedCurrencyToNumber(amount)
     const parsedInstallments = Number(installmentsTotal)
+    const effectiveInstallmentsTotal = costType === 'fixo' ? parsedInstallments : 1
 
     if (!accountName.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       onStatusChange('warning', 'Informe uma conta e um valor valido para salvar.')
       return
     }
 
-    if (!Number.isInteger(parsedInstallments) || parsedInstallments < 1) {
+    if (costType === 'fixo' && (!Number.isInteger(parsedInstallments) || parsedInstallments < 1)) {
       onStatusChange('warning', 'Total de parcelas deve ser inteiro e maior ou igual a 1.')
       return
     }
@@ -103,7 +109,7 @@ export function CostEditPage({
         accountName,
         amount: parsedAmount,
         costType,
-        installmentsTotal: parsedInstallments,
+        installmentsTotal: effectiveInstallmentsTotal,
       })
 
       onStatusChange('success', 'Custo atualizado com sucesso.')
@@ -163,31 +169,33 @@ export function CostEditPage({
                 </label>
                 <input
                   id="edit-cost-amount"
-                  type="number"
+                  type="text"
                   className="form-control"
-                  min="0.01"
-                  step="0.01"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
+                  onChange={(event) => setAmount(maskCurrencyInput(event.target.value))}
                   required
                 />
               </div>
 
-              <div className="col-12 col-md-3">
-                <label className="form-label" htmlFor="edit-cost-installments-total">
-                  Parcelas
-                </label>
-                <input
-                  id="edit-cost-installments-total"
-                  type="number"
-                  className="form-control"
-                  min="1"
-                  step="1"
-                  value={installmentsTotal}
-                  onChange={(event) => setInstallmentsTotal(event.target.value)}
-                  required
-                />
-              </div>
+              {costType === 'fixo' && (
+                <div className="col-12 col-md-3">
+                  <label className="form-label" htmlFor="edit-cost-installments-total">
+                    Parcelas
+                  </label>
+                  <input
+                    id="edit-cost-installments-total"
+                    type="number"
+                    className="form-control"
+                    min="1"
+                    step="1"
+                    value={installmentsTotal}
+                    onChange={(event) => setInstallmentsTotal(event.target.value)}
+                    required
+                  />
+                </div>
+              )}
 
               <div className="col-12 col-md-4">
                 <label className="form-label" htmlFor="edit-cost-type">

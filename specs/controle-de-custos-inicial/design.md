@@ -3,20 +3,28 @@
 ## Visao de solucao
 
 A feature sera implementada no frontend React com separacao entre:
+
 - componentes de interface;
 - hooks de orquestracao;
 - regras de negocio puras;
 - servico de persistencia no Firestore.
 
 Foco funcional da solucao:
+
 - incluir item de menu para acesso rapido ao modulo de custos;
 - exibir listagem detalhada por conta;
 - separar custos em duas frentes: `fixo` e `variavel`;
 - manter cadastro rapido e fluente com campos minimos;
+- aplicar mascara monetaria BRL no campo de valor (entrada e edicao);
+- definir frente padrao como `variavel`;
+- exibir campo de parcelas somente quando frente = `fixo`;
 - realizar edicao em formulario separado da listagem;
-- atualizar relatorios em tempo real do mes corrente.
+- atualizar relatorios em tempo real do mes corrente;
+- disponibilizar menu de `Relatorios` com filtros por periodo e frente;
+- exibir resultados em grid e suportar exportacao CSV/PDF via botao de overflow.
 
 Padrao visual transversal:
+
 - usar Material Design Icons Community (`@mdi/react` + `@mdi/js`) para acoes e navegacao.
 - aplicar controle de acesso por role: Admin e Standard com CRUD completo, Guest apenas visualizacao.
 - usar tokens semanticos de tema para textos, fundos, bordas, botoes, badges e alertas.
@@ -42,10 +50,15 @@ Padrao visual transversal:
 ## Regras de negocio
 
 - cadastro rapido exige: `accountName`, `amount`, `costType`.
+- `amount` deve ser informado por campo mascarado em BRL e convertido para `number` antes da persistencia.
 - `installmentsTotal` assume `1` quando nao informado.
 - `installmentsTotal` deve ser inteiro >= 1.
+- para `costType = variavel`, `installmentsTotal` e forcado para `1`.
+- para `costType = fixo` e `installmentsTotal = N`, a persistencia cria N lancamentos em competencias mensais sequenciais.
 - relatorio em tempo real do mes corrente usa filtro por `competenceMonth` e `competenceYear`.
 - filtros de listagem devem permitir visualizar: `todos`, `fixo`, `variavel`.
+- tela de relatorios usa filtros por `createdAt` (intervalo inclusivo de datas) e `costType` opcional.
+- exportacoes (CSV/PDF) devem refletir exatamente o resultado filtrado exibido no grid.
 - permissoes seguem controle-de-acesso:
   - Admin: canAdd, canEdit, canDelete, canView
   - Standard: canAdd, canEdit, canDelete, canView
@@ -60,6 +73,10 @@ Padrao visual transversal:
 - CostQuickCreateForm
 - CostEditFormPage (formulario separado)
 - MonthlyCostReportCard
+- ReportsPage
+- ReportsFilterForm
+- ReportsGrid
+- ReportsExportOverflow
 - GlobalSnackbar
 
 ## Hooks propostos
@@ -73,8 +90,10 @@ Padrao visual transversal:
 ## Estrategia de persistencia
 
 - Persistencia principal: Firebase Firestore com subcolecao por usuario.
-- Escritas com `serverTimestamp()` para `createdAt` e `updatedAt`.
+- Escritas com `serverTimestamp()` para `createdAt` e `updatedAt` quando a data manual nao for informada.
+- Em cadastro de custo fixo parcelado, criar um documento por parcela em meses subsequentes (incremento mensal da competencia).
 - Leitura por consultas indexadas por `userId`, `competenceYear`, `competenceMonth` e `costType`.
+- Leitura para relatorios usando endpoint dedicado (`/api/reports/costs`) com filtro por `createdAt` (inicio/fim) e `costType` opcional.
 - Estrutura detalhada em `specs/controle-de-custos-inicial/firestore-structure.md`.
 - Controle de acesso aplicado no frontend com ocultacao de acoes sem permissao.
 

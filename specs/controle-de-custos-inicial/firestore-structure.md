@@ -1,6 +1,7 @@
 # Firestore Structure - Controle de Custos
 
 Este documento define a estrutura de dados no Firestore para suportar a feature inicial de custos com:
+
 - menu de acesso ao modulo de custos;
 - listagem detalhada por conta;
 - separacao entre custos fixos e variaveis;
@@ -10,6 +11,7 @@ Este documento define a estrutura de dados no Firestore para suportar a feature 
 ## Nota sobre Controle de Acesso
 
 As estruturas definidas neste documento seguem as permissoes de role da feature controle-de-acesso:
+
 - Admin: leitura e escrita (create, read, update, delete)
 - Standard: leitura e escrita (create, read, update, delete)
 - Guest: leitura apenas (read-only)
@@ -30,9 +32,11 @@ As estruturas definidas neste documento seguem as permissoes de role da feature 
 ### 1) Lancamentos de custos
 
 Caminho:
+
 - `users/{userId}/costEntries/{entryId}`
 
 Campos:
+
 - `userId`: string
 - `accountName`: string
 - `amount`: number
@@ -74,9 +78,17 @@ Exemplo de documento:
   - filtro: `competenceYear == X` e `competenceMonth == Y`
   - agregacoes por `costType` e total geral
 
+- Consultar relatorios por periodo:
+  - filtro: `createdAt >= dataInicial` e `createdAt <= dataFinal`
+  - filtro opcional: `costType == "fixo"` ou `costType == "variavel"`
+  - ordenacao: `createdAt desc`
+
 ## Operacoes de persistencia obrigatorias
 
-- Escrita create: criar documento em `costEntries` com `createdAt` e `updatedAt`.
+- Escrita create:
+  - para `costType = variavel`, criar um unico documento com `installmentsTotal = 1`.
+  - para `costType = fixo` e `installmentsTotal = N`, criar `N` documentos em `costEntries`, um para cada competencia mensal sequencial a partir da data base.
+  - preencher `createdAt` e `updatedAt` em todos os documentos gerados.
 - Escrita update: atualizar documento preservando `createdAt` e atualizando `updatedAt`.
 - Escrita delete: remover documento-alvo mantendo consistencia da UI com o estado persistido.
 - Tratamento de falha: em erro de permissao/rede, nao confirmar alteracao local como definitiva e exibir feedback ao usuario.
@@ -86,13 +98,20 @@ Exemplo de documento:
 ### costEntries
 
 1. Campos:
+
 - `competenceYear` (ASC)
 - `competenceMonth` (ASC)
 - `createdAt` (DESC)
 
 2. Campos:
+
 - `competenceYear` (ASC)
 - `competenceMonth` (ASC)
+- `costType` (ASC)
+- `createdAt` (DESC)
+
+3. Campos:
+
 - `costType` (ASC)
 - `createdAt` (DESC)
 
@@ -121,4 +140,6 @@ service cloud.firestore {
 - Em update, preservar `createdAt` e atualizar apenas `updatedAt`.
 - Padronizar `costType` com enum local para evitar variacoes de escrita.
 - `installmentsTotal` deve ter valor minimo `1`; quando ausente no cadastro rapido, preencher com `1`.
+- para `costType = variavel`, normalizar `installmentsTotal` como `1` independentemente do valor recebido.
 - Firestore e a fonte final da verdade para custos e relatorios; estado local e cache servem apenas para interface.
+- Exportacoes CSV/PDF devem ser geradas a partir do conjunto retornado pela consulta filtrada vigente em tela.

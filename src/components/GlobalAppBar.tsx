@@ -49,7 +49,7 @@ function GlobalAppBar({
         <div className="d-flex align-items-center gap-2">
           <button
             type="button"
-            className="btn btn-sm appbar-icon-btn"
+            className="btn btn-sm appbar-icon-btn .appbar-toggle-btn"
             aria-label={menuTooltipText}
             onClick={onToggleSidebar}
             data-tooltip-id="appbar-tooltip"

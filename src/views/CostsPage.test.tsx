@@ -54,7 +54,7 @@ describe('CostsPage', () => {
     await waitForInitialLoad()
 
     await user.type(screen.getByLabelText('Conta'), 'Energia')
-    await user.type(screen.getByLabelText('Valor'), '220')
+    await user.type(screen.getByLabelText('Valor'), '22000')
     await user.click(screen.getByRole('button', { name: 'Adicionar custo' }))
 
     await waitFor(() => {
@@ -63,11 +63,34 @@ describe('CostsPage', () => {
         expect.objectContaining({
           accountName: 'Energia',
           amount: 220,
-          costType: 'fixo',
+          costType: 'variavel',
           installmentsTotal: 1,
         }),
       )
     })
+  })
+
+  it('exibe campo de parcelas apenas para frente fixa', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <CostsPage
+        userId="uid-1"
+        role="standard"
+        onStatusChange={jest.fn()}
+        onEditCost={jest.fn()}
+      />,
+    )
+
+    await waitForInitialLoad()
+
+    expect(screen.queryByLabelText('Parcelas')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Frente'), 'fixo')
+    expect(screen.getByLabelText('Parcelas')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Frente'), 'variavel')
+    expect(screen.queryByLabelText('Parcelas')).not.toBeInTheDocument()
   })
 
   it('aplica filtro por custos variaveis', async () => {

@@ -2,6 +2,7 @@
 @import 'react-tooltip/dist/react-tooltip.css';
 @import '../styles/app-shell.css';
 @import '../views/CostsPage.css';
+@import '../views/ReportsPage.css';
 @import '../views/UserProfileListPage.css';
 @import '../components/Snackbar.css';
 @import '../components/UserProfileEditForm.css';

@@ -47,7 +47,7 @@ describe('CostEditPage', () => {
     expect(await screen.findByDisplayValue('Escola')).toBeInTheDocument()
 
     await user.clear(screen.getByLabelText('Valor'))
-    await user.type(screen.getByLabelText('Valor'), '500')
+    await user.type(screen.getByLabelText('Valor'), '50000')
     await user.click(screen.getByRole('button', { name: 'Salvar alteracoes' }))
 
     await waitFor(() => {
@@ -64,5 +64,40 @@ describe('CostEditPage', () => {
     })
 
     expect(onBack).toHaveBeenCalled()
+  })
+
+  it('mostra parcelas apenas quando a frente e fixa', async () => {
+    const user = userEvent.setup()
+
+    mockedGetCostEntryById.mockResolvedValue({
+      id: 'cost-2',
+      accountName: 'Internet',
+      amount: 180,
+      costType: 'fixo',
+      installmentsTotal: 4,
+      competenceYear: 2026,
+      competenceMonth: 4,
+      createdAt: new Date('2026-04-01T12:00:00'),
+      updatedAt: new Date('2026-04-01T12:00:00'),
+    })
+
+    render(
+      <CostEditPage
+        userId="uid-1"
+        role="standard"
+        costId="cost-2"
+        onBack={jest.fn()}
+        onStatusChange={jest.fn()}
+      />,
+    )
+
+    expect(await screen.findByDisplayValue('Internet')).toBeInTheDocument()
+    expect(screen.getByLabelText('Parcelas')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Frente'), 'variavel')
+    expect(screen.queryByLabelText('Parcelas')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Frente'), 'fixo')
+    expect(screen.getByLabelText('Parcelas')).toBeInTheDocument()
   })
 })
