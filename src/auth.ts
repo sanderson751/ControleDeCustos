@@ -66,6 +66,7 @@ async function signInWithFirebasePassword(email: string, password: string) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   session: {
     strategy: 'jwt',
   },
@@ -126,7 +127,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (account?.provider === 'google') {
-        const authIntent = cookies().get('auth_intent')?.value
+        const authIntent = (await cookies()).get('auth_intent')?.value
         const isRegisterIntent = authIntent === 'register'
         const emailOwner = await findUserByEmail(user.email)
 
