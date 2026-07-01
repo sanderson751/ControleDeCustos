@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CostsPage } from './CostsPage'
 import {
-  CostEntry,
+  type CostEntry,
   createCostEntry,
   deleteCostEntry,
   listCurrentMonthCosts,

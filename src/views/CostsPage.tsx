@@ -1,12 +1,12 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import Icon from '@mdi/react'
 import { mdiPencil, mdiTrashCanOutline } from '@mdi/js'
 import { Tooltip } from 'react-tooltip'
 import {
-  CostEntry,
-  CostType,
+  type CostEntry,
+  type CostType,
   createCostEntry,
   deleteCostEntry,
   listCurrentMonthCosts,
@@ -16,7 +16,7 @@ import {
   maskCurrencyInput,
   parseMaskedCurrencyToNumber,
 } from '../lib/currency'
-import { UserRole } from '../types/rolePermission'
+import { type UserRole } from '../types/rolePermission'
 
 type CostsPageProps = {
   userId: string
@@ -103,10 +103,6 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
 
   useEffect(() => {
     void loadCosts()
-
-    return () => {
-      undefined
-    }
   }, [loadCosts])
 
   const filteredEntries = useMemo(() => {

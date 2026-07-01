@@ -9,13 +9,14 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 3. Definir solução em `specs/<feature>/design.md`.
 4. Quebrar implementação em `specs/<feature>/tasks.md`.
 5. Definir/validar estrutura de dados no Firestore em `specs/<feature>/firestore-structure.md`.
-6. Executar com ciclos curtos de implementação e testes.
+6. Executar ciclos curtos de implementação, lint e testes.
 
 ## Gate obrigatorio de persistencia
 
 - Feature que cria/edita/exclui dados so pode ser considerada pronta quando a persistencia no Firebase Firestore estiver implementada e validada.
 - Nao e permitido encerrar feature com armazenamento final apenas em memoria local da interface.
 - Toda feature de dados deve manter `requirements.md`, `tasks.md` e `firestore-structure.md` coerentes entre si.
+- Toda feature deve encerrar sem erros de lint (`npm run lint`) seguindo a configuracao oficial do repositorio.
 
 ## Estrutura de arquivos
 

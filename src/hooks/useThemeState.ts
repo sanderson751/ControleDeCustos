@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  ThemeMode,
+  type ThemeMode,
   getThemePreference,
   setThemePreference,
 } from '../services/uiPreferenceService'

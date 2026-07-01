@@ -21,10 +21,12 @@ Descreva a necessidade do usuario e o objetivo de negocio.
 - RNF-08: Cores do snackbar por status: erro (vermelho), sucesso (verde), warning (amarelo).
 - RNF-09: Toda feature que manipula dados de negocio deve persistir no Firebase Firestore (sem depender de estado local como fonte final).
 - RNF-10: Cada operacao de escrita no Firestore deve ter criterio de aceite para sucesso e falha de persistencia.
+- RNF-11: Implementacao deve encerrar sem erros de lint (`npm run lint`), incluindo conformidade das regras de `react-hooks`.
 
 ## Criterios de aceite (Gherkin)
 
 ### Cenario 1 - <nome>
+
 Given ...
 When ...
 Then ...

@@ -8,7 +8,7 @@ import {
   mdiAccountMultiple,
 } from '@mdi/js'
 import { Tooltip } from 'react-tooltip'
-import { UserRole } from '../types/rolePermission'
+import { type UserRole } from '../types/rolePermission'
 
 const BUTTON_ICON_SIZE = 0.9
 

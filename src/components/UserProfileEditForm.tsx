@@ -6,10 +6,10 @@
  */
 
 import React, { useState } from 'react'
-import { UserProfile, UserRole } from '../types/rolePermission'
+import { type UserProfile, type UserRole } from '../types/rolePermission'
 import { getRoleLabel, getRoleDescription } from '../services/rolePermissionService'
 import { updateUserProfile } from '../services/userListService'
-import { SnackbarStatus } from './Snackbar'
+import { type SnackbarStatus } from './Snackbar'
 
 interface UserProfileEditFormProps {
   user: UserProfile

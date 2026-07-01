@@ -6,15 +6,15 @@
  * Acessível apenas para usuários com role 'admin'
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Icon from '@mdi/react'
 import { mdiPencil } from '@mdi/js'
 import { Tooltip } from 'react-tooltip'
-import { UserProfile } from '../types/rolePermission'
+import { type UserProfile } from '../types/rolePermission'
 import { getRoleLabel } from '../services/rolePermissionService'
 import { loadAllUsers } from '../services/userListService'
 import { UserProfileEditForm } from '../components/UserProfileEditForm'
-import Snackbar, { SnackbarStatus } from '../components/Snackbar'
+import Snackbar, { type SnackbarStatus } from '../components/Snackbar'
 
 const ACTION_ICON_SIZE = 0.8
 
@@ -38,15 +38,11 @@ export const UserProfileListPage: React.FC<UserProfileListPageProps> = ({ onClos
     message: '',
   })
 
-  const showSnackbar = (status: SnackbarStatus, message: string) => {
+  const showSnackbar = useCallback((status: SnackbarStatus, message: string) => {
     setSnackbar({ open: true, status, message })
-  }
-
-  useEffect(() => {
-    loadUsers()
   }, [])
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -60,7 +56,11 @@ export const UserProfileListPage: React.FC<UserProfileListPageProps> = ({ onClos
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [showSnackbar])
+
+  useEffect(() => {
+    void loadUsers()
+  }, [loadUsers])
 
   const handleEditClick = (user: UserProfile) => {
     setSelectedUser(user)

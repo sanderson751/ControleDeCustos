@@ -26,6 +26,7 @@ Este diretório concentra os contextos por papel para orientar prompts e entrega
 - Toda feature com dados deve persistir no Firebase Firestore (nao apenas em estado local).
 - Toda nova spec deve explicitar a persistencia em `requirements.md`, `tasks.md` e `firestore-structure.md`.
 - Toda nova spec deve aplicar o checklist unico: `specs/_template/dod-checklist.md`.
+- Toda entrega deve encerrar sem erros de lint (`npm run lint`), incluindo conformidade de hooks (`rules-of-hooks` e `exhaustive-deps`).
 
 ## Exemplo de uso rapido
 

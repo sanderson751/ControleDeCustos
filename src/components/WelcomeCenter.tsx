@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   listCurrentMonthCosts,
-  subscribeToCurrentMonthCosts,
   type CostEntry,
 } from '../services/costService'
 

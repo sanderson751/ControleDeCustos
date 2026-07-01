@@ -9,7 +9,7 @@ import {
   createPermissionContext,
   isPermitted,
 } from '../services/rolePermissionService';
-import { PermissionAction, PermissionResource } from '../types/rolePermission';
+import { type PermissionAction, type PermissionResource } from '../types/rolePermission';
 
 interface UseCanAccessResult {
   can: (action: PermissionAction, resource: PermissionResource) => boolean;

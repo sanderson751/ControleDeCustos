@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import Icon from '@mdi/react'
 import { mdiChevronDown, mdiFileDelimited, mdiFilePdfBox, mdiFilterVariant } from '@mdi/js'
 import autoTable from 'jspdf-autotable'
@@ -100,7 +100,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
     }
   }, [entries])
 
-  async function loadReport() {
+  const loadReport = useCallback(async () => {
     if (!startDate || !endDate) {
       onStatusChange('warning', 'Informe o periodo inicial e final para filtrar o relatorio.')
       return
@@ -126,7 +126,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [costType, endDate, onStatusChange, startDate])
 
   useEffect(() => {
     if (!canView) {
@@ -134,7 +134,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
     }
 
     void loadReport()
-  }, [canView])
+  }, [canView, loadReport])
 
   async function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

@@ -11,8 +11,10 @@ Use este checklist em toda nova spec da pasta `specs/`.
 ## Qualidade tecnica
 
 - [ ] Sem erros de tipagem.
+- [ ] Lint do projeto executado sem erros (`npm run lint`).
 - [ ] Testes automatizados passando.
 - [ ] Novos bugs corrigidos possuem teste de regressao.
+- [ ] Hooks validados com `react-hooks/rules-of-hooks` e `react-hooks/exhaustive-deps` sem supressoes indevidas.
 - [ ] Fluxos de escrita da feature persistem no Firebase Firestore (create/update/delete conforme escopo).
 - [ ] `specs/<feature>/firestore-structure.md` criado/atualizado e coerente com a implementacao.
 - [ ] Falhas de persistencia possuem tratamento e feedback para usuario.

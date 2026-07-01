@@ -1,7 +1,7 @@
-import { User } from 'firebase/auth'
+import { type User } from 'firebase/auth'
 import { doc, serverTimestamp, setDoc, updateDoc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { UserRole } from '../types/rolePermission'
+import { type UserRole } from '../types/rolePermission'
 
 const usersCollection = 'users'
 const settingsCollection = 'settings'
@@ -87,7 +87,7 @@ export async function upsertUserProfile(user: User): Promise<void> {
     const existingDoc = await getDoc(userRef)
     if (existingDoc.exists() && existingDoc.data().role) {
       // preserve existing role - copiar baseFi without role
-      const { role, ...fieldsToUpdate } = baseFields
+      const { role: _role, ...fieldsToUpdate } = baseFields
       await updateDoc(userRef, fieldsToUpdate)
     } else {
       // novo usuário ou role não definido

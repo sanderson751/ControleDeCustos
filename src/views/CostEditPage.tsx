@@ -1,13 +1,13 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
-import { CostType, getCostEntryById, updateCostEntry } from '../services/costService'
+import { type FormEvent, useEffect, useState } from 'react'
+import { type CostType, getCostEntryById, updateCostEntry } from '../services/costService'
 import {
   maskCurrencyInput,
   parseMaskedCurrencyToNumber,
   toMaskedCurrencyFromNumber,
 } from '../lib/currency'
-import { UserRole } from '../types/rolePermission'
+import { type UserRole } from '../types/rolePermission'
 
 type CostEditPageProps = {
   userId: string

@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import Icon from '@mdi/react'
 import {
   mdiAccountCheckOutline,

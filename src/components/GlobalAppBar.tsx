@@ -1,16 +1,16 @@
 'use client'
 
 import Icon from '@mdi/react'
+import Image from 'next/image'
 import {
-  mdiAccountCircleOutline,
   mdiLogoutVariant,
   mdiMenu,
   mdiWeatherNight,
   mdiWhiteBalanceSunny,
 } from '@mdi/js'
 import { Tooltip } from 'react-tooltip'
-import { ThemeMode } from '../services/uiPreferenceService'
-import { UserRole } from '../types/rolePermission'
+import { type ThemeMode } from '../services/uiPreferenceService'
+import { type UserRole } from '../types/rolePermission'
 
 const BUTTON_ICON_SIZE = 0.9
 
@@ -63,12 +63,13 @@ function GlobalAppBar({
         <div className="d-flex align-items-center gap-2">
           <div className="d-flex align-items-center gap-2 text-white">
             {user.image ? (
-              <img
+              <Image
                 src={user.image}
                 alt={`Avatar de ${userName}`}
                 width={36}
                 height={36}
                 className="rounded-circle border border-light"
+                unoptimized
               />
             ) : (
               <span

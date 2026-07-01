@@ -37,11 +37,19 @@ Implementar interfaces reativas, acessiveis e responsivas conforme a spec.
 - Garantir sincronizacao da interface com resultado real da persistencia (sucesso/falha).
 - Atualizar a especificacao de estrutura em `specs/<feature>/firestore-structure.md` quando houver mudanca de dados.
 
+## Guardrails obrigatorios de lint
+
+- Executar `npm run lint:fix` para autofix seguro antes da revisao final.
+- Encerrar a entrega com `npm run lint` sem erros.
+- Tratar avisos/erros de hooks priorizando codigo estavel (`useCallback`/`useMemo`) em vez de suprimir regra.
+
 ## Exemplo (Controle de Custos)
 
 Implementacao esperada:
+
 - `CostEntryForm` com validacao de valor > 0.
 - `CostSummaryCard` com percentual consumido por categoria.
 
 Comportamento esperado:
+
 - Em telas menores que 768px, cards ocupam 100% da largura usando grid do Bootstrap 5.

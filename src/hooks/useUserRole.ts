@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 
 import { getUserRole } from '../services/rolePermissionService';
-import { UserRole } from '../types/rolePermission';
+import { type UserRole } from '../types/rolePermission';
 
 interface UseUserRoleResult {
   role: UserRole | null;

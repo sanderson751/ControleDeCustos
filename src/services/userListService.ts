@@ -1,5 +1,5 @@
 import { requestJson } from './httpClient'
-import { UserRole, UserProfile } from '../types/rolePermission'
+import { type UserRole, type UserProfile } from '../types/rolePermission'
 
 type SerializedUserProfile = Omit<UserProfile, 'createdAt' | 'updatedAt'> & {
   createdAt: string

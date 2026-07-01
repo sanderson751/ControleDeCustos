@@ -5,11 +5,11 @@ import { requestJson } from './httpClient'
  * Implementa matriz de permissões e funções de verificação
  */
 import {
-  UserRole,
-  PermissionAction,
-  PermissionResource,
-  PermissionContext,
-  MenuItem,
+  type UserRole,
+  type PermissionAction,
+  type PermissionResource,
+  type PermissionContext,
+  type MenuItem,
 } from '../types/rolePermission';
 
 /**

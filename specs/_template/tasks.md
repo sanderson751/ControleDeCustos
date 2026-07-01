@@ -19,6 +19,9 @@
 
 ## Fase 3 - Qualidade
 
+- [ ] Executar `npm run lint:fix` para autofix seguro.
+- [ ] Executar `npm run lint` e corrigir erros remanescentes.
+- [ ] Validar efeitos e callbacks para conformidade com `react-hooks/exhaustive-deps`.
 - [ ] Testes de componente.
 - [ ] Testes de regressao.
 - [ ] Validacao de persistencia (create/update/delete) no Firestore para os fluxos da feature.

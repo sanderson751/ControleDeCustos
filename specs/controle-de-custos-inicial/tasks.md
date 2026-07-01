@@ -36,6 +36,9 @@
 
 ## Fase 4 - Qualidade
 
+- [x] Configurar ESLint 9 em flat config (`eslint.config.mjs`) com stack Next + TypeScript.
+- [x] Aplicar regras principais de hooks (`rules-of-hooks` e `exhaustive-deps`) e adequar componentes.
+- [x] Executar `npm run lint:fix` e `npm run lint` sem erros.
 - [x] Criar testes de interface para cadastro rapido valido e validacao de campos obrigatorios.
 - [ ] Criar testes de interface para filtro de custos fixos e variaveis.
 - [ ] Criar testes de interface para filtros e exportacao da tela de relatorios.

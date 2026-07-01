@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReportsPage from './ReportsPage'
 import { listCostsForReport } from '../services/reportService'
-import { URL } from 'url'
 
 jest.mock('../services/reportService', () => ({
   listCostsForReport: jest.fn(),
