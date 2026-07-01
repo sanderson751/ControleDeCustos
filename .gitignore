@@ -28,6 +28,11 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
+# Firebase deploy artifacts/logs
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
 # OS/Editor
 .DS_Store
 Thumbs.db

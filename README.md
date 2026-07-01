@@ -12,6 +12,13 @@ Objetivo: demonstrar como transformar requisitos em software com previsibilidade
 - Stack: Next.js + React + TypeScript + Firebase Firestore.
 - Qualidade: lint, testes automatizados e gates de persistencia.
 
+## Status de publicacao (importante para avaliacao)
+
+- Este projeto nao esta publicado em URL publica no momento.
+- Motivo tecnico: o deploy de Next.js SSR no Firebase Hosting exige Cloud Functions + Artifact Registry, que requer plano Blaze (pay-as-you-go) no projeto Firebase.
+- O codigo esta pronto para deploy, com build de producao validado localmente.
+- Para avaliacao tecnica, execute localmente com `npm install` e `npm run dev`.
+
 ## O que foi usado
 
 - Frontend: Next.js 15 (App Router), React 18, TypeScript.
