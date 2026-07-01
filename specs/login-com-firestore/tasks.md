@@ -13,6 +13,8 @@
 - [x] Criar `src/auth.ts` com callbacks de sessao e sincronizacao de perfil.
 - [x] Criar `services/server/userProfileService` com upsert em `users/{uid}`.
 - [x] Garantir regras de timestamp (`createdAt`, `updatedAt`, `lastLoginAt`) no backend.
+- [x] Implementar validacao de unicidade de email no backend para impedir contas duplicadas entre provedores.
+- [x] Implementar classificacao de erro no login por credenciais (usuario inexistente vs credenciais incorretas).
 
 ## Fase 3 - Interface e navegacao
 
@@ -28,6 +30,9 @@
 - [ ] Testar login com Google (sucesso e falha).
 - [ ] Testar redirecionamento para `/home` apos autenticacao.
 - [ ] Testar que falhas de login nao redirecionam.
+- [ ] Testar mensagem "As informacoes estao incorretas." quando email existir e senha estiver incorreta.
+- [ ] Testar mensagem "Usuario nao existe." quando email nao existir.
+- [ ] Testar bloqueio de duplicidade de email entre login por senha e Google.
 - [ ] Validar legibilidade e contraste (AA) de formularios e mensagens em tema `light` e `dark`.
 - [ ] Testar comportamento do snackbar (auto-dismiss 3s, fechamento por `X`, cor por status).
 
@@ -37,5 +42,7 @@
 - [x] Login por Google configurado na camada Auth.js.
 - [x] Documento `users/{uid}` criado/atualizado no Firestore.
 - [x] Redirecionamento para app principal funcionando.
+- [x] Unicidade de email aplicada no backend para cadastro/login social.
+- [x] Mensagens de erro de login diferenciadas para usuario inexistente e credenciais incorretas.
 - [ ] Testes de fluxo critico passando.
 - [ ] Fluxo de falha de persistencia em Firestore validado sem inconsistencias de estado.

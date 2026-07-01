@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { upsertUserProfile } from '@/services/server/userProfileService'
+import { isEmailRegistered, upsertUserProfile } from '@/services/server/userProfileService'
 
 function mapIdentityError(code: string) {
   switch (code) {
@@ -33,6 +33,18 @@ export async function POST(request: Request) {
   if (!email || !password) {
     return NextResponse.json(
       { message: 'Email e senha sao obrigatorios.', code: 'INVALID_INPUT' },
+      { status: 400 },
+    )
+  }
+
+  const emailInUse = await isEmailRegistered(email)
+
+  if (emailInUse) {
+    return NextResponse.json(
+      {
+        message: mapIdentityError('EMAIL_EXISTS'),
+        code: 'EMAIL_EXISTS',
+      },
       { status: 400 },
     )
   }

@@ -30,6 +30,7 @@ export const UserProfileEditForm: React.FC<UserProfileEditFormProps> = ({
   const [role, setRole] = useState<UserRole>(user.role)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const isBusy = isSaving || isLoading
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,7 +76,7 @@ export const UserProfileEditForm: React.FC<UserProfileEditFormProps> = ({
       <div className="user-profile-edit-form-container">
         <h2>Editar Perfil de Usuário</h2>
 
-        <form onSubmit={handleSubmit} className="user-profile-edit-form">
+        <form onSubmit={handleSubmit} className="user-profile-edit-form" aria-busy={isBusy ? 'true' : undefined}>
           {/* Email - apenas leitura */}
           <div className="form-group">
             <label htmlFor="email">Email</label>
@@ -99,7 +100,7 @@ export const UserProfileEditForm: React.FC<UserProfileEditFormProps> = ({
               onChange={(e) => setDisplayName(e.target.value)}
               className="form-control"
               placeholder="Digite o nome completo"
-              disabled={isSaving || isLoading}
+              disabled={isBusy}
             />
           </div>
 
@@ -116,7 +117,7 @@ export const UserProfileEditForm: React.FC<UserProfileEditFormProps> = ({
                       value={roleOption}
                       checked={role === roleOption}
                       onChange={(e) => setRole(e.target.value as UserRole)}
-                      disabled={isSaving || isLoading}
+                      disabled={isBusy}
                     />
                     <span className="role-title">{getRoleLabel(roleOption)}</span>
                     <span className="role-description">
@@ -135,16 +136,24 @@ export const UserProfileEditForm: React.FC<UserProfileEditFormProps> = ({
           <div className="form-actions">
             <button
               type="submit"
-              className="btn btn-primary"
-              disabled={isSaving || isLoading}
+              className="btn btn-primary btn-loading-stable btn-loading-width-lg d-inline-flex align-items-center gap-2"
+              disabled={isBusy}
+              aria-busy={isSaving ? 'true' : undefined}
             >
+              <span className="btn-icon-slot" aria-hidden="true">
+                {isSaving ? (
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                ) : (
+                  <span className="btn-icon-placeholder" />
+                )}
+              </span>
               {isSaving ? 'Salvando...' : 'Salvar'}
             </button>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={onCancel}
-              disabled={isSaving || isLoading}
+              disabled={isBusy}
             >
               Cancelar
             </button>

@@ -28,6 +28,7 @@ export const UserProfileListPage: React.FC<UserProfileListPageProps> = ({ onClos
   const [error, setError] = useState<string | null>(null)
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [isEditFormOpen, setIsEditFormOpen] = useState(false)
+  const [openingEditUserId, setOpeningEditUserId] = useState<string | null>(null)
   const [snackbar, setSnackbar] = useState<{
     open: boolean
     status: SnackbarStatus
@@ -63,6 +64,7 @@ export const UserProfileListPage: React.FC<UserProfileListPageProps> = ({ onClos
   }, [loadUsers])
 
   const handleEditClick = (user: UserProfile) => {
+    setOpeningEditUserId(user.userId)
     setSelectedUser(user)
     setIsEditFormOpen(true)
   }
@@ -75,11 +77,13 @@ export const UserProfileListPage: React.FC<UserProfileListPageProps> = ({ onClos
 
     setIsEditFormOpen(false)
     setSelectedUser(null)
+    setOpeningEditUserId(null)
   }
 
   const handleCancelEdit = () => {
     setIsEditFormOpen(false)
     setSelectedUser(null)
+    setOpeningEditUserId(null)
   }
 
   if (error && !users.length) {
@@ -151,8 +155,14 @@ export const UserProfileListPage: React.FC<UserProfileListPageProps> = ({ onClos
                       aria-label="Editar usuário"
                       data-tooltip-id="user-profile-list-tooltip"
                       data-tooltip-content="Editar usuário"
+                      disabled={Boolean(openingEditUserId)}
+                      aria-busy={openingEditUserId === user.userId ? 'true' : undefined}
                     >
-                      <Icon path={mdiPencil} size={ACTION_ICON_SIZE} aria-hidden="true" />
+                      {openingEditUserId === user.userId ? (
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                      ) : (
+                        <Icon path={mdiPencil} size={ACTION_ICON_SIZE} aria-hidden="true" />
+                      )}
                       <span className="visually-hidden">Editar usuário</span>
                     </button>
                   </td>

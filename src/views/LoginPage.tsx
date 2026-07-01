@@ -28,7 +28,16 @@ function LoginPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoadingEmailLogin, setIsLoadingEmailLogin] = useState(false)
   const [isLoadingGoogleLogin, setIsLoadingGoogleLogin] = useState(false)
+  const authErrorParam = searchParams?.get('error')
   const callbackUrl = searchParams?.get('callbackUrl') || '/home'
+
+  const authErrorFromQuery = (() => {
+    if (!authErrorParam) {
+      return ''
+    }
+
+    return friendlyAuthErrorMessage(new Error(authErrorParam))
+  })()
 
   async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -59,6 +68,11 @@ function LoginPage() {
     setIsLoadingGoogleLogin(true)
 
     try {
+      if (typeof document !== 'undefined') {
+        const intent = isRegisterMode ? 'register' : 'login'
+        document.cookie = `auth_intent=${intent}; Max-Age=300; Path=/; SameSite=Lax`
+      }
+
       await loginWithGoogle(callbackUrl)
     } catch (error) {
       if (process.env.NODE_ENV !== 'test') {
@@ -111,9 +125,9 @@ function LoginPage() {
                 </button>
               </div>
 
-              {errorMessage && (
+              {(errorMessage || authErrorFromQuery) && (
                 <div role="alert" aria-live="polite" className="alert alert-danger">
-                  {errorMessage}
+                  {errorMessage || authErrorFromQuery}
                 </div>
               )}
 

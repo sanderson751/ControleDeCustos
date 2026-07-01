@@ -79,12 +79,14 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
   const [manualDate, setManualDate] = useState(toInputDateValue(new Date()))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null)
+  const [isEditingId, setIsEditingId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
 
   const now = useMemo(() => new Date(), [])
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
   const canMutate = role !== 'guest'
+  const isMutating = isSubmitting || Boolean(isDeletingId) || Boolean(isEditingId)
 
   const loadCosts = useCallback(async () => {
     try {
@@ -220,6 +222,15 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
     }
   }
 
+  function handleEdit(entryId: string) {
+    if (isMutating) {
+      return
+    }
+
+    setIsEditingId(entryId)
+    onEditCost(entryId)
+  }
+
   return (
     <section className="costs-page container-fluid py-4" data-testid="costs-page-screen">
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -270,6 +281,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                   className="form-control"
                   value={accountName}
                   onChange={(event) => setAccountName(event.target.value)}
+                  disabled={isMutating}
                   required
                 />
               </div>
@@ -285,6 +297,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                   placeholder="R$ 0,00"
                   value={amount}
                   onChange={(event) => setAmount(maskCurrencyInput(event.target.value))}
+                  disabled={isMutating}
                   required
                 />
               </div>
@@ -297,6 +310,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                   className="form-select"
                   value={costType}
                   onChange={(event) => setCostType(event.target.value as CostType)}
+                  disabled={isMutating}
                 >
                   <option value="fixo">Fixo</option>
                   <option value="variavel">Variavel</option>
@@ -315,6 +329,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                     className="form-control"
                     value={installmentsTotal}
                     onChange={(event) => setInstallmentsTotal(event.target.value)}
+                    disabled={isMutating}
                   />
                 </div>
               )}
@@ -326,6 +341,7 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                     type="checkbox"
                     checked={useManualDate}
                     onChange={(event) => setUseManualDate(event.target.checked)}
+                    disabled={isMutating}
                   />
                   <label className="form-check-label" htmlFor="cost-manual-date">
                     Ajustar data de criacao
@@ -343,13 +359,26 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                     className="form-control"
                     value={manualDate}
                     onChange={(event) => setManualDate(event.target.value)}
+                    disabled={isMutating}
                   />
                 </div>
               )}
             </div>
 
             <div className="mt-3">
-              <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+              <button
+                type="submit"
+                className="btn btn-primary btn-loading-stable btn-loading-width-md d-inline-flex align-items-center gap-2"
+                disabled={isMutating}
+                aria-busy={isSubmitting ? 'true' : undefined}
+              >
+                <span className="btn-icon-slot" aria-hidden="true">
+                  {isSubmitting ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                  ) : (
+                    <span className="btn-icon-placeholder" />
+                  )}
+                </span>
                 {isSubmitting ? 'Salvando...' : 'Adicionar custo'}
               </button>
             </div>
@@ -426,9 +455,15 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                                 aria-label="Editar custo"
                                 data-tooltip-id="costs-page-tooltip"
                                 data-tooltip-content="Editar custo"
-                                onClick={() => onEditCost(entry.id)}
+                                onClick={() => handleEdit(entry.id)}
+                                disabled={isMutating}
+                                aria-busy={isEditingId === entry.id ? 'true' : undefined}
                               >
-                                <Icon path={mdiPencil} size={ACTION_ICON_SIZE} aria-hidden="true" />
+                                {isEditingId === entry.id ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                                ) : (
+                                  <Icon path={mdiPencil} size={ACTION_ICON_SIZE} aria-hidden="true" />
+                                )}
                               </button>
                               <button
                                 type="button"
@@ -437,9 +472,14 @@ export function CostsPage({ userId, role, onStatusChange, onEditCost }: CostsPag
                                 data-tooltip-id="costs-page-tooltip"
                                 data-tooltip-content="Excluir custo"
                                 onClick={() => handleDelete(entry.id)}
-                                disabled={isDeletingId === entry.id}
+                                disabled={isMutating}
+                                aria-busy={isDeletingId === entry.id ? 'true' : undefined}
                               >
-                                <Icon path={mdiTrashCanOutline} size={ACTION_ICON_SIZE} aria-hidden="true" />
+                                {isDeletingId === entry.id ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                                ) : (
+                                  <Icon path={mdiTrashCanOutline} size={ACTION_ICON_SIZE} aria-hidden="true" />
+                                )}
                               </button>
                             </div>
                           </td>

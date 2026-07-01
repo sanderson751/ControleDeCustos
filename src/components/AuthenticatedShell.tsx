@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import AppShellSkeleton from './AppShellSkeleton'
 import GlobalAppBar from './GlobalAppBar'
@@ -25,7 +25,9 @@ type AuthenticatedShellProps = {
 export default function AuthenticatedShell({ user, children }: AuthenticatedShellProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const [isRouteTransitionPending, startRouteTransition] = useTransition()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [pendingRoutePath, setPendingRoutePath] = useState<string | null>(null)
   const [snackbar, setSnackbar] = useState<{
     open: boolean
     status: SnackbarStatus
@@ -49,9 +51,31 @@ export default function AuthenticatedShell({ user, children }: AuthenticatedShel
     }
   }, [themePersistenceError, showSnackbar])
 
-  if (isLoadingSidebarPreference || isLoadingThemePreference) {
-    return <AppShellSkeleton />
-  }
+  useEffect(() => {
+    if (pendingRoutePath && pathname === pendingRoutePath) {
+      setPendingRoutePath(null)
+    }
+  }, [pathname, pendingRoutePath])
+
+  const handleNavigate = useCallback(
+    (path: string) => {
+      if (path === pathname) {
+        return
+      }
+
+      setPendingRoutePath(path)
+      startRouteTransition(() => {
+        router.push(path)
+      })
+    },
+    [pathname, router],
+  )
+
+  const isContentLoading =
+    isLoadingSidebarPreference ||
+    isLoadingThemePreference ||
+    isRouteTransitionPending ||
+    Boolean(pendingRoutePath)
 
   async function handleLogout() {
     setIsLoggingOut(true)
@@ -83,9 +107,9 @@ export default function AuthenticatedShell({ user, children }: AuthenticatedShel
           role={user.role}
           isCollapsed={isSidebarCollapsed}
           currentPath={pathname}
-          onNavigate={(path) => router.push(path)}
+          onNavigate={handleNavigate}
         />
-        <main className="app-shell-content">{children}</main>
+        <main className="app-shell-content">{isContentLoading ? <AppShellSkeleton /> : children}</main>
       </div>
 
       <Snackbar

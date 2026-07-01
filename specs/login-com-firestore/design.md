@@ -28,6 +28,7 @@ Padrao visual transversal:
   - callbacks `signIn`, `jwt` e `session`
 - `UserProfileService` server-side:
   - `upsertUserProfile(authUser)`
+  - `findUserByEmail(email)` e validacao de unicidade entre provedores
 - `Middleware` + layout protegido:
   - bloqueia acesso nao autenticado
   - libera e redireciona autenticado para `/home`
@@ -43,8 +44,19 @@ Padrao visual transversal:
 ## Fluxo de erro
 
 1. Firebase retorna erro de autenticacao.
-2. Sistema mapeia erro tecnico para mensagem amigavel.
-3. Usuario permanece na tela de login sem redirecionamento.
+2. Sistema classifica erro de credenciais:
+
+- email inexistente -> "Usuario nao existe."
+- email existente + senha invalida -> "As informacoes estao incorretas."
+
+3. Sistema mapeia erro tecnico para mensagem amigavel.
+4. Usuario permanece na tela de login sem redirecionamento.
+
+## Unicidade de email
+
+- O backend valida email unico de forma case-insensitive usando `emailNormalized` em `users/{uid}`.
+- Cadastro por email/senha e login por Google nao podem criar duas contas com o mesmo email.
+- Quando detectar conflito entre provedores para o mesmo email, o fluxo e bloqueado com mensagem amigavel de email ja em uso.
 
 ## Modelo de dados no Firestore
 
@@ -57,6 +69,7 @@ Campos:
 - `uid`: string
 - `displayName`: string
 - `email`: string
+- `emailNormalized`: string (lowercase para unicidade)
 - `photoURL`: string
 - `provider`: string (`password` ou `google.com`)
 - `createdAt`: Timestamp

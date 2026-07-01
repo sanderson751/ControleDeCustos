@@ -73,6 +73,10 @@ describe('ReportsPage', () => {
       expect(mockedListCostsForReport).toHaveBeenCalled()
     })
 
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Exportar' })).toBeEnabled()
+    })
+
     await user.click(screen.getByRole('button', { name: 'Exportar' }))
     await user.click(screen.getByRole('menuitem', { name: 'Exportar PDF' }))
 

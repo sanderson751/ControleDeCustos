@@ -1,13 +1,25 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
-import { getUserRole, upsertUserProfile } from '@/services/server/userProfileService'
+import { cookies } from 'next/headers'
+import {
+  findUserByEmail,
+  getUserRole,
+  upsertUserProfile,
+} from '@/services/server/userProfileService'
 
 type FirebasePasswordAuthResponse = {
   localId: string
   email: string
   displayName?: string
 }
+
+type FirebasePasswordAuthError =
+  | 'INVALID_LOGIN_CREDENTIALS'
+  | 'INVALID_PASSWORD'
+  | 'EMAIL_NOT_FOUND'
+  | 'USER_DISABLED'
+  | 'UNKNOWN'
 
 async function signInWithFirebasePassword(email: string, password: string) {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
@@ -36,10 +48,21 @@ async function signInWithFirebasePassword(email: string, password: string) {
     | { error?: { message?: string } }
 
   if (!response.ok || !('localId' in payload)) {
-    return null
+    const message =
+      'error' in payload && payload.error?.message
+        ? String(payload.error.message)
+        : 'UNKNOWN'
+
+    return {
+      user: null,
+      error: message as FirebasePasswordAuthError,
+    }
   }
 
-  return payload
+  return {
+    user: payload,
+    error: null,
+  }
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -61,16 +84,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null
         }
 
-        const user = await signInWithFirebasePassword(email, password)
+        const authResult = await signInWithFirebasePassword(email, password)
 
-        if (!user) {
-          return null
+        if (!authResult.user) {
+          if (authResult.error === 'EMAIL_NOT_FOUND') {
+            throw new Error('USER_NOT_FOUND')
+          }
+
+          if (
+            authResult.error === 'INVALID_PASSWORD' ||
+            authResult.error === 'INVALID_LOGIN_CREDENTIALS'
+          ) {
+            const existingUser = await findUserByEmail(email)
+
+            if (existingUser) {
+              throw new Error('INVALID_CREDENTIALS')
+            }
+
+            throw new Error('USER_NOT_FOUND')
+          }
+
+          throw new Error('AUTH_FAILED')
         }
 
         return {
-          id: user.localId,
-          email: user.email,
-          name: user.displayName ?? user.email,
+          id: authResult.user.localId,
+          email: authResult.user.email,
+          name: authResult.user.displayName ?? authResult.user.email,
         }
       },
     }),
@@ -83,6 +123,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account }) {
       if (!user.id || !user.email) {
         return false
+      }
+
+      if (account?.provider === 'google') {
+        const authIntent = cookies().get('auth_intent')?.value
+        const isRegisterIntent = authIntent === 'register'
+        const emailOwner = await findUserByEmail(user.email)
+
+        if (emailOwner) {
+          if (isRegisterIntent && emailOwner.uid !== user.id) {
+            return '/login?error=EMAIL_EXISTS'
+          }
+
+          // Em modo "Ja tenho conta", reaproveita o uid ja existente para evitar duplicidade.
+          user.id = emailOwner.uid
+        }
       }
 
       await upsertUserProfile({

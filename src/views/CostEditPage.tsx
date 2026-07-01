@@ -31,6 +31,7 @@ export function CostEditPage({
   const [costType, setCostType] = useState<CostType>('variavel')
   const [installmentsTotal, setInstallmentsTotal] = useState('1')
   const canMutate = role !== 'guest'
+  const isBusy = isLoading || isSaving
 
   useEffect(() => {
     if (!costId) {
@@ -132,7 +133,10 @@ export function CostEditPage({
   if (isLoading) {
     return (
       <section className="container-fluid py-4">
-        <p className="mb-0">Carregando formulario de edicao...</p>
+        <div className="d-inline-flex align-items-center gap-2" aria-live="polite" aria-busy="true">
+          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+          <p className="mb-0">Carregando formulario de edicao...</p>
+        </div>
       </section>
     )
   }
@@ -143,7 +147,12 @@ export function CostEditPage({
         <div className="card-body">
           <div className="d-flex align-items-center justify-content-between mb-3">
             <h2 className="h5 mb-0">Editar custo</h2>
-            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={onBack}
+              disabled={isBusy}
+            >
               Voltar para listagem
             </button>
           </div>
@@ -159,6 +168,7 @@ export function CostEditPage({
                   className="form-control"
                   value={accountName}
                   onChange={(event) => setAccountName(event.target.value)}
+                  disabled={isBusy}
                   required
                 />
               </div>
@@ -175,6 +185,7 @@ export function CostEditPage({
                   placeholder="R$ 0,00"
                   value={amount}
                   onChange={(event) => setAmount(maskCurrencyInput(event.target.value))}
+                  disabled={isBusy}
                   required
                 />
               </div>
@@ -192,6 +203,7 @@ export function CostEditPage({
                     step="1"
                     value={installmentsTotal}
                     onChange={(event) => setInstallmentsTotal(event.target.value)}
+                    disabled={isBusy}
                     required
                   />
                 </div>
@@ -206,6 +218,7 @@ export function CostEditPage({
                   className="form-select"
                   value={costType}
                   onChange={(event) => setCostType(event.target.value as CostType)}
+                  disabled={isBusy}
                 >
                   <option value="fixo">Fixo</option>
                   <option value="variavel">Variavel</option>
@@ -214,10 +227,22 @@ export function CostEditPage({
             </div>
 
             <div className="mt-3 d-flex gap-2">
-              <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              <button
+                type="submit"
+                className="btn btn-primary btn-loading-stable btn-loading-width-md d-inline-flex align-items-center gap-2"
+                disabled={isBusy}
+                aria-busy={isSaving ? 'true' : undefined}
+              >
+                <span className="btn-icon-slot" aria-hidden="true">
+                  {isSaving ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                  ) : (
+                    <span className="btn-icon-placeholder" />
+                  )}
+                </span>
                 {isSaving ? 'Salvando...' : 'Salvar alteracoes'}
               </button>
-              <button type="button" className="btn btn-secondary" onClick={onBack}>
+              <button type="button" className="btn btn-secondary" onClick={onBack} disabled={isBusy}>
                 Cancelar
               </button>
             </div>

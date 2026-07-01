@@ -14,6 +14,10 @@ Como usuario do sistema de controle de custos, quero autenticar com email/senha 
 - RF-06: em logins seguintes, atualizar `updatedAt` e `lastLoginAt` mantendo `createdAt`.
 - RF-07: em falha de autenticacao, exibir mensagem amigavel sem detalhes sensiveis.
 - RF-08: a sessao autenticada deve ser persistida pelo Auth.js e disponibilizada para layouts, paginas e rotas da API.
+- RF-09: no login com email/senha, quando o email existir e a senha estiver incorreta, exibir mensagem: "As informacoes estao incorretas.".
+- RF-10: no login com email/senha, quando o email nao existir na base, exibir mensagem: "Usuario nao existe.".
+- RF-11: nao permitir contas duplicadas por email entre provedores diferentes (email/senha e Google).
+- RF-12: o email deve ser unico no sistema, independentemente do provedor utilizado.
 
 ## Requisitos nao funcionais
 
@@ -32,6 +36,8 @@ Como usuario do sistema de controle de custos, quero autenticar com email/senha 
 - RB-01: somente usuarios autenticados acessam a area principal.
 - RB-02: redirecionamento para `/home` apenas apos autenticacao confirmada e sessao valida.
 - RB-03: perfil de usuario autenticado deve estar sincronizado em `users/{uid}`.
+- RB-04: um email pode estar vinculado a apenas um usuario no sistema.
+- RB-05: tentativa de cadastro/login social com email ja vinculado a outro usuario deve ser bloqueada com mensagem amigavel.
 
 ## Criterios de aceite (Gherkin)
 
@@ -59,6 +65,27 @@ Given que o usuario informa credenciais invalidas
 When tentar autenticar
 Then deve exibir mensagem de erro amigavel
 And nao deve redirecionar para `/home`
+
+### Cenario 4 - Email existente com senha incorreta
+
+Given que o email informado ja existe na base
+When o usuario informar senha incorreta e tentar autenticar
+Then o sistema deve exibir "As informacoes estao incorretas."
+And nao deve redirecionar para `/home`
+
+### Cenario 5 - Usuario inexistente
+
+Given que o email informado nao existe na base
+When o usuario tentar autenticar
+Then o sistema deve exibir "Usuario nao existe."
+And nao deve redirecionar para `/home`
+
+### Cenario 6 - Unicidade de email entre provedores
+
+Given que ja existe uma conta com determinado email
+When houver tentativa de criar outra conta com o mesmo email por outro provedor
+Then o sistema deve bloquear a operacao
+And deve exibir mensagem amigavel informando que o email ja esta em uso
 
 ## Fora de escopo
 

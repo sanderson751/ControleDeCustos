@@ -66,7 +66,13 @@ const allMenuItems: MenuItem[] = [
   },
 ]
 
-function SidebarMenu({ isCollapsed, userId, role, currentPath, onNavigate }: SidebarMenuProps) {
+function SidebarMenu({
+  isCollapsed,
+  userId,
+  role,
+  currentPath,
+  onNavigate,
+}: SidebarMenuProps) {
   void userId
 
   const visibleMenuItems = allMenuItems.filter((item) => {

@@ -3,6 +3,7 @@
 ## Objetivo
 
 Definir a estrutura minima para suportar:
+
 - criacao de conta com email/senha
 - login com email/senha
 - login com Google
@@ -13,9 +14,11 @@ Definir a estrutura minima para suportar:
 - `users/{uid}`
 
 Campos esperados em `users/{uid}`:
+
 - `uid`: string
 - `displayName`: string
 - `email`: string
+- `emailNormalized`: string (email em lowercase para garantir unicidade)
 - `photoURL`: string
 - `provider`: string (`password` ou `google.com`)
 - `status`: string (`online` ou `offline`)
@@ -27,9 +30,11 @@ Campos esperados em `users/{uid}`:
 ## Subcolecao de configuracoes
 
 Caminho:
+
 - `users/{uid}/settings/profile`
 
 Campos esperados:
+
 - `userId`: string
 - `currency`: string (padrao `BRL`)
 - `locale`: string (padrao `pt-BR`)
@@ -50,20 +55,29 @@ Campos esperados:
 - Escrita delete: nao aplicavel para esta feature.
 - Tratamento de falha: bloquear conclusao do fluxo com estado inconsistente e exibir feedback ao usuario.
 
+## Regra de unicidade de email
+
+- O campo `emailNormalized` deve ser utilizado para validacao case-insensitive de unicidade.
+- O sistema deve impedir criacao de mais de um usuario para o mesmo email, incluindo fluxos com provedores diferentes (senha e Google).
+
 ## Regras de seguranca
 
 Arquivo de regras:
+
 - `firestore.rules`
 
 Regra principal:
+
 - usuario autenticado so acessa os documentos do proprio `uid`.
 
 ## Indices compostos
 
 Arquivo de indices:
+
 - `firestore.indexes.json`
 
 Inclui indices para consultas futuras de:
+
 - `costEntries`
 - `budgetLimits`
 

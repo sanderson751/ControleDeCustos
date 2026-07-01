@@ -56,6 +56,13 @@ export function friendlyAuthErrorMessage(error: unknown): string {
   switch (message) {
     case 'CredentialsSignin':
       return 'Email ou senha invalidos.'
+    case 'USER_NOT_FOUND':
+      return 'Usuario nao existe.'
+    case 'INVALID_CREDENTIALS':
+      return 'As informacoes estao incorretas.'
+    case 'EMAIL_EXISTS':
+    case 'EMAIL_ALREADY_IN_USE':
+      return 'Este email ja esta em uso. Tente entrar ou use outro email.'
     case 'AccessDenied':
       return 'Nao foi possivel autenticar neste momento.'
     case 'FIREBASE_API_KEY_MISSING':

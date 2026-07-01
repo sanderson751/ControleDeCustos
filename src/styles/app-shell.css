@@ -148,6 +148,46 @@
   line-height: 1;
 }
 
+.btn-loading-stable .btn-icon-slot {
+  width: 0.95rem;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-loading-stable .btn-icon-slot .spinner-border {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-width: 0.12em;
+}
+
+.btn-loading-stable .btn-icon-slot .btn-icon-placeholder {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-block;
+  opacity: 0;
+}
+
+.btn-loading-stable.btn-sm .btn-icon-slot,
+.btn.icon-action-btn .spinner-border,
+.icon-action-btn .spinner-border {
+  width: 0.8rem;
+  min-width: 0.8rem;
+  height: 0.8rem;
+  border-width: 0.12em;
+}
+
+.btn-loading-width-md {
+  min-width: 10rem;
+}
+
+.btn-loading-width-lg {
+  min-width: 11.5rem;
+}
+
 .btn-icon-label.centered {
   justify-content: center;
 }

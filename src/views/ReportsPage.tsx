@@ -81,6 +81,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
   const [entries, setEntries] = useState<ReportEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
+  const [activeExportType, setActiveExportType] = useState<'csv' | 'pdf' | null>(null)
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
 
   const canView = role === 'admin' || role === 'standard' || role === 'guest'
@@ -148,6 +149,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
     }
 
     setIsExporting(true)
+    setActiveExportType('csv')
 
     try {
       const csvContent = getCsvContent(entries)
@@ -157,6 +159,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
       onStatusChange('error', 'Falha ao exportar CSV. Tente novamente.')
     } finally {
       setIsExporting(false)
+      setActiveExportType(null)
       setIsExportMenuOpen(false)
     }
   }
@@ -168,6 +171,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
     }
 
     setIsExporting(true)
+    setActiveExportType('pdf')
 
     try {
       const document = new jsPDF({ orientation: 'landscape' })
@@ -194,6 +198,7 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
       onStatusChange('error', 'Falha ao exportar PDF. Tente novamente.')
     } finally {
       setIsExporting(false)
+      setActiveExportType(null)
       setIsExportMenuOpen(false)
     }
   }
@@ -213,27 +218,61 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
         <div className="overflow-menu-wrapper">
           <button
             type="button"
-            className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+            className="btn btn-outline-primary btn-loading-stable btn-loading-width-md d-inline-flex align-items-center gap-2"
             aria-expanded={isExportMenuOpen}
             onClick={() => setIsExportMenuOpen((current) => !current)}
-            disabled={isExporting}
+            disabled={isExporting || isLoading}
+            aria-busy={isExporting ? 'true' : undefined}
           >
-            Exportar
+            <span className="btn-icon-slot" aria-hidden="true">
+              {isExporting ? (
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+              ) : (
+                <span className="btn-icon-placeholder" />
+              )}
+            </span>
+            {isExporting ? 'Exportando...' : 'Exportar'}
             <Icon path={mdiChevronDown} size={0.7} aria-hidden="true" />
           </button>
 
           {isExportMenuOpen && (
             <div className="overflow-menu card shadow-sm" role="menu" aria-label="Opcoes de exportacao">
-              <button type="button" className="btn btn-sm text-start" role="menuitem" onClick={handleExportCsv}>
+              <button
+                type="button"
+                className="btn btn-sm btn-loading-stable text-start"
+                role="menuitem"
+                onClick={handleExportCsv}
+                disabled={isExporting || isLoading}
+                aria-busy={activeExportType === 'csv' ? 'true' : undefined}
+              >
                 <span className="btn-icon-label">
-                  <Icon path={mdiFileDelimited} size={0.8} aria-hidden="true" />
-                  <span>Exportar CSV</span>
+                  <span className="btn-icon-slot" aria-hidden="true">
+                    {activeExportType === 'csv' ? (
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                    ) : (
+                      <Icon path={mdiFileDelimited} size={0.8} aria-hidden="true" />
+                    )}
+                  </span>
+                  <span>{activeExportType === 'csv' ? 'Exportando CSV...' : 'Exportar CSV'}</span>
                 </span>
               </button>
-              <button type="button" className="btn btn-sm text-start" role="menuitem" onClick={handleExportPdf}>
+              <button
+                type="button"
+                className="btn btn-sm btn-loading-stable text-start"
+                role="menuitem"
+                onClick={handleExportPdf}
+                disabled={isExporting || isLoading}
+                aria-busy={activeExportType === 'pdf' ? 'true' : undefined}
+              >
                 <span className="btn-icon-label">
-                  <Icon path={mdiFilePdfBox} size={0.8} aria-hidden="true" />
-                  <span>Exportar PDF</span>
+                  <span className="btn-icon-slot" aria-hidden="true">
+                    {activeExportType === 'pdf' ? (
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                    ) : (
+                      <Icon path={mdiFilePdfBox} size={0.8} aria-hidden="true" />
+                    )}
+                  </span>
+                  <span>{activeExportType === 'pdf' ? 'Exportando PDF...' : 'Exportar PDF'}</span>
                 </span>
               </button>
             </div>
@@ -294,7 +333,19 @@ export default function ReportsPage({ role, onStatusChange }: ReportsPageProps) 
             </div>
 
             <div className="col-12 col-md-3 d-flex align-items-end">
-              <button type="submit" className="btn btn-primary w-100" disabled={isLoading}>
+              <button
+                type="submit"
+                className="btn btn-primary btn-loading-stable w-100 d-inline-flex align-items-center justify-content-center gap-2"
+                disabled={isLoading || isExporting}
+                aria-busy={isLoading ? 'true' : undefined}
+              >
+                <span className="btn-icon-slot" aria-hidden="true">
+                  {isLoading ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                  ) : (
+                    <span className="btn-icon-placeholder" />
+                  )}
+                </span>
                 {isLoading ? 'Filtrando...' : 'Aplicar filtros'}
               </button>
             </div>
