@@ -24,9 +24,11 @@ export function useCompetenceResource<T>(
   fallbackErrorMessage: string,
   /** Valor exibido enquanto nao ha dados (use uma constante estavel). */
   emptyValue: T,
+  /** Parametros adicionais que definem outro recorte (ex.: periodo); trocar limpa dados e erro. */
+  extraKey = "",
 ): CompetenceResource<T> {
   const { year, month } = competence;
-  const key = `${userId}|${toCompetenceParam({ year, month })}`;
+  const key = `${userId}|${toCompetenceParam({ year, month })}|${extraKey}`;
   const [data, setData] = useState<T>(emptyValue);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

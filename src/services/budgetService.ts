@@ -130,3 +130,17 @@ export async function applyMonthBudgetChanges(
 
   await batch.commit();
 }
+
+/** Excecoes mensais de um ou mais anos (para series historicas). */
+export async function listBudgetLimitsByYears(
+  userId: string,
+  years: readonly number[],
+): Promise<BudgetLimit[]> {
+  const snapshot = await getDocs(
+    query(budgetLimitsCollectionRef(userId), where("year", "in", [...years])),
+  );
+
+  return snapshot.docs.map((docSnapshot) =>
+    toBudgetLimit(docSnapshot.id, docSnapshot.data()),
+  );
+}

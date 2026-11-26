@@ -3,6 +3,7 @@ import {
   HouseIcon,
   type LucideIcon,
   PiggyBankIcon,
+  TrendingUpIcon,
   UsersIcon,
   WalletIcon,
 } from "lucide-react";
@@ -20,6 +21,7 @@ export const ROUTES = {
   costs: "/costs",
   costEdit: (costId: string) => `/costs/${encodeURIComponent(costId)}/edit`,
   budgets: "/budgets",
+  evolution: "/evolution",
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;
@@ -55,6 +57,13 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: "Orçamentos",
     path: ROUTES.budgets,
     icon: PiggyBankIcon,
+    keepsCompetence: true,
+  },
+  {
+    key: "evolution",
+    label: "Evolução",
+    path: ROUTES.evolution,
+    icon: TrendingUpIcon,
     keepsCompetence: true,
   },
   {

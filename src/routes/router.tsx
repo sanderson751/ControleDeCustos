@@ -9,6 +9,7 @@ import {
   BudgetsPage,
   CostEditPage,
   CostsPage,
+  EvolutionPage,
   FullPageSuspense,
   HomePage,
   LoginPage,
@@ -67,6 +68,14 @@ export const appRoutes: RouteObject[] = [
             element: (
               <PageSuspense>
                 <BudgetsPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: ROUTES.evolution,
+            element: (
+              <PageSuspense>
+                <EvolutionPage />
               </PageSuspense>
             ),
           },

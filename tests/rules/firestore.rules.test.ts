@@ -464,3 +464,31 @@ describe("recurringBudgets: encerramento por update e escrita de guest", () => {
     await assertSucceeds(getDoc(doc(as("gui"), guiPath)));
   });
 });
+
+describe("consultas da evolucao mensal (in por ano)", () => {
+  it("dono consulta custos e orcamentos por anos; outros usuarios nao", async () => {
+    const { query, where } = await import("firebase/firestore");
+
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(as("ana"), "users/ana/costEntries"),
+          where("competenceYear", "in", [2025, 2026]),
+        ),
+      ),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(collection(as("ana"), "users/ana/budgetLimits"), where("year", "in", [2026])),
+      ),
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(as("gui"), "users/ana/costEntries"),
+          where("competenceYear", "in", [2026]),
+        ),
+      ),
+    );
+  });
+});
