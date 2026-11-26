@@ -1,9 +1,14 @@
-import { COST_TYPE_LABELS, type CostEntry } from "@/domain/entities/cost";
+import {
+  COST_CATEGORY_LABELS,
+  COST_TYPE_LABELS,
+  type CostEntry,
+} from "@/domain/entities/cost";
 import { formatCurrencyBRL } from "@/lib/currency";
 import { formatCompetence, formatDateBR } from "@/lib/dates";
 
 export const REPORT_HEADER = [
   "Conta",
+  "Categoria",
   "Frente",
   "Valor",
   "Data de criação",
@@ -14,6 +19,7 @@ export const REPORT_HEADER = [
 function toRow(entry: CostEntry, amount: string): string[] {
   return [
     entry.accountName,
+    COST_CATEGORY_LABELS[entry.category],
     COST_TYPE_LABELS[entry.costType],
     amount,
     formatDateBR(entry.createdAt),

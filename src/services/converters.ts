@@ -1,6 +1,8 @@
 import type { DocumentData } from "firebase/firestore";
+import type { BudgetLimit } from "@/domain/entities/budget";
 import type { CostEntry } from "@/domain/entities/cost";
 import type { UserProfile } from "@/domain/entities/user";
+import { normalizeCategory } from "@/domain/rules/costRules";
 import { normalizeRole } from "@/domain/rules/permissions";
 
 type TimestampLike = { toDate: () => Date };
@@ -35,11 +37,22 @@ export function toCostEntry(id: string, data: DocumentData): CostEntry {
     accountName: String(data.accountName ?? ""),
     amount: Number(data.amount ?? 0),
     costType: data.costType === "fixo" ? "fixo" : "variavel",
+    category: normalizeCategory(data.category),
     installmentsTotal: Number(data.installmentsTotal ?? 1),
     competenceYear: Number(data.competenceYear ?? now.getFullYear()),
     competenceMonth: Number(data.competenceMonth ?? now.getMonth() + 1),
     createdAt: toDate(data.createdAt, now),
     updatedAt: toDate(data.updatedAt, now),
+  };
+}
+
+export function toBudgetLimit(id: string, data: DocumentData): BudgetLimit {
+  return {
+    id,
+    category: normalizeCategory(data.category),
+    year: Number(data.year),
+    month: Number(data.month),
+    limit: Number(data.limit ?? 0),
   };
 }
 

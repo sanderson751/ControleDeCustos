@@ -31,4 +31,6 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - `specs/controle-de-custos-inicial/firestore-structure.md`: estrutura de colecoes, indices e regras.
 - `specs/_template/firestore-structure.md`: template de estrutura para novas features.
 - `specs/migracao-spa-vite/`: migracao para SPA (Vite + React + Firebase client) e nova UI shadcn/ui.
+- `specs/categorias-de-custo/`: categoria obrigatoria nos lancamentos, navegacao por competencia e consolidado por categoria.
+- `specs/orcamento-por-categoria/`: orcamento mensal por categoria e alertas de 80%/100%.
 - `CLAUDE.md` e `.claude/`: mapeamento dos agentes e skills do SDD para o Claude Code.

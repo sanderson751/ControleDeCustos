@@ -36,10 +36,12 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
 
 - Login com email/senha e Google; cadastro de conta.
 - Controle de acesso por papéis (Admin, Standard, Guest) na UI e nas regras do Firestore.
-- Dashboard do mês com totais de custos fixos e variáveis.
-- Cadastro rápido, listagem com filtro e paginação, edição e exclusão (com confirmação) de custos.
+- Dashboard por competência (navegação entre meses) com totais fixos/variáveis, consolidado por categoria e alertas de orçamento.
+- Cadastro rápido com categoria, listagem com filtros (frente e categoria) e paginação, edição e exclusão (com confirmação) de custos.
 - Parcelamento de custos fixos (um lançamento por competência).
-- Relatórios por período e frente, com exportação CSV e PDF.
+- Orçamento mensal por categoria com consumo, status e cópia do mês anterior.
+- Alertas ao atingir 80% e ao estourar 100% do orçamento (no Início e ao cadastrar um custo).
+- Relatórios por período, frente e categoria, com exportação CSV e PDF.
 - Gestão de perfis de usuários (admin).
 - Tema light/dark e menu lateral retrátil com preferência salva no Firestore.
 - Feedback padronizado (snackbar) para sucesso, erro e warning.

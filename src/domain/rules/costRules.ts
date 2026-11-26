@@ -1,12 +1,84 @@
-import type {
-  CostEntry,
-  CostFilter,
-  CostTotals,
-  CostType,
-  NewCostInput,
+import {
+  type CategoryFilter,
+  type CategoryTotal,
+  COST_CATEGORIES,
+  type CostCategory,
+  type CostEntry,
+  type CostFilter,
+  type CostTotals,
+  type CostType,
+  FALLBACK_CATEGORY,
+  type NewCostInput,
 } from "@/domain/entities/cost";
 
 export const MAX_INSTALLMENTS = 120;
+
+export function isCostCategory(value: unknown): value is CostCategory {
+  return (
+    typeof value === "string" &&
+    (COST_CATEGORIES as readonly string[]).includes(value)
+  );
+}
+
+/** Categoria valida ou "outros" (lancamentos legados sem categoria). */
+export function normalizeCategory(value: unknown): CostCategory {
+  return isCostCategory(value) ? value : FALLBACK_CATEGORY;
+}
+
+export function filterCosts(
+  entries: readonly CostEntry[],
+  filters: { costType: CostFilter; category: CategoryFilter },
+): CostEntry[] {
+  return entries.filter(
+    (entry) =>
+      (filters.costType === "todos" || entry.costType === filters.costType) &&
+      (filters.category === "todas" || entry.category === filters.category),
+  );
+}
+
+/**
+ * Consolidado por categoria: soma, participacao no total e ordenacao do
+ * maior para o menor. Categorias sem lancamento nao aparecem.
+ */
+export function sumByCategory(entries: readonly CostEntry[]): CategoryTotal[] {
+  const totals = new Map<CostCategory, number>();
+  let grandTotal = 0;
+
+  for (const entry of entries) {
+    totals.set(entry.category, (totals.get(entry.category) ?? 0) + entry.amount);
+    grandTotal += entry.amount;
+  }
+
+  return [...totals.entries()]
+    .map(([category, total]) => ({
+      category,
+      total: roundCurrency(total),
+      share: grandTotal > 0 ? total / grandTotal : 0,
+    }))
+    .sort(
+      (left, right) =>
+        right.total - left.total ||
+        COST_CATEGORIES.indexOf(left.category) -
+          COST_CATEGORIES.indexOf(right.category),
+    );
+}
+
+/** Total gasto por categoria (todas as categorias, zero quando sem lancamento). */
+export function spentByCategory(
+  entries: readonly CostEntry[],
+): Record<CostCategory, number> {
+  const result = Object.fromEntries(
+    COST_CATEGORIES.map((category) => [category, 0]),
+  ) as Record<CostCategory, number>;
+
+  for (const entry of entries) {
+    result[entry.category] = roundCurrency(
+      result[entry.category] + entry.amount,
+    );
+  }
+
+  return result;
+}
 
 /** Soma os custos fixos, variaveis e o total geral. */
 export function calculateTotals(entries: readonly CostEntry[]): CostTotals {
@@ -118,18 +190,28 @@ export type CostFormValues = {
   accountName: string;
   amount: number;
   costType: CostType;
+  /** Vazio quando o usuario ainda nao selecionou. */
+  category: CostCategory | "";
   installmentsTotal: number;
 };
 
-export type ValidationResult = { ok: true } | { ok: false; message: string };
+export type ValidCostFormValues = CostFormValues & { category: CostCategory };
 
-export function validateCostForm(values: CostFormValues): ValidationResult {
+export type CostValidationResult =
+  | { ok: true; values: ValidCostFormValues }
+  | { ok: false; message: string };
+
+export function validateCostForm(values: CostFormValues): CostValidationResult {
   if (!values.accountName.trim()) {
     return { ok: false, message: "Informe o nome da conta." };
   }
 
   if (!Number.isFinite(values.amount) || values.amount <= 0) {
     return { ok: false, message: "Informe um valor maior que zero." };
+  }
+
+  if (!isCostCategory(values.category)) {
+    return { ok: false, message: "Selecione uma categoria." };
   }
 
   if (
@@ -144,7 +226,7 @@ export function validateCostForm(values: CostFormValues): ValidationResult {
     };
   }
 
-  return { ok: true };
+  return { ok: true, values: { ...values, category: values.category } };
 }
 
 export function paginate<T>(

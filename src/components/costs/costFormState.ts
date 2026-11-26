@@ -1,4 +1,4 @@
-import type { CostEntry, CostType } from "@/domain/entities/cost";
+import type { CostCategory, CostEntry, CostType } from "@/domain/entities/cost";
 import type { CostFormValues } from "@/domain/rules/costRules";
 import {
   parseMaskedCurrencyToNumber,
@@ -11,6 +11,8 @@ export type CostFormState = {
   /** Valor mascarado, ex.: "R$ 1.234,56" */
   amount: string;
   costType: CostType;
+  /** Vazio ate o usuario escolher (categoria e obrigatoria). */
+  category: CostCategory | "";
   installmentsTotal: string;
 };
 
@@ -18,6 +20,7 @@ export const EMPTY_COST_FORM: CostFormState = {
   accountName: "",
   amount: "",
   costType: "variavel",
+  category: "",
   installmentsTotal: "1",
 };
 
@@ -26,6 +29,7 @@ export function toCostFormValues(state: CostFormState): CostFormValues {
     accountName: state.accountName,
     amount: parseMaskedCurrencyToNumber(state.amount),
     costType: state.costType,
+    category: state.category,
     installmentsTotal:
       state.costType === "fixo" ? Number(state.installmentsTotal) : 1,
   };
@@ -36,6 +40,7 @@ export function fromCostEntry(entry: CostEntry): CostFormState {
     accountName: entry.accountName,
     amount: toMaskedCurrencyFromNumber(entry.amount),
     costType: entry.costType,
+    category: entry.category,
     installmentsTotal: String(entry.installmentsTotal),
   };
 }

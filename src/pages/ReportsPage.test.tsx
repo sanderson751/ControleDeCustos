@@ -71,7 +71,26 @@ describe("ReportsPage", () => {
         startDate: "2026-10-01",
         endDate: "2026-11-26",
         costType: "fixo",
+        category: "todas",
       }),
+    );
+  });
+
+  it("filtra por categoria e exibe a coluna Categoria", async () => {
+    mockedList.mockResolvedValue([
+      makeCostEntry({ accountName: "Cinema", category: "lazer" }),
+    ]);
+    const { user, profile } = setup();
+    expect(await screen.findByRole("cell", { name: "Lazer" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Categoria"), "lazer");
+    await user.click(screen.getByRole("button", { name: "Aplicar filtros" }));
+
+    await waitFor(() =>
+      expect(mockedList).toHaveBeenLastCalledWith(
+        profile.userId,
+        expect.objectContaining({ category: "lazer" }),
+      ),
     );
   });
 

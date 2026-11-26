@@ -62,6 +62,35 @@ describe("listCostsForReport", () => {
     expect(mocked.where).toHaveBeenCalledWith("costType", "==", "variavel");
   });
 
+  it("filtra por categoria no client, tratando legado sem categoria como outros", async () => {
+    mocked.getDocs.mockResolvedValueOnce(
+      querySnapshot([
+        { id: "1", data: { accountName: "Cinema", amount: 40, category: "lazer" } },
+        { id: "2", data: { accountName: "Antigo", amount: 10 } },
+        { id: "3", data: { accountName: "Show", amount: 90, category: "lazer" } },
+      ]) as never,
+    );
+
+    const lazer = await listCostsForReport("uid-1", {
+      startDate: "2026-11-01",
+      endDate: "2026-11-30",
+      costType: "todos",
+      category: "lazer",
+    });
+    expect(lazer.map((entry) => entry.id)).toEqual(["1", "3"]);
+
+    mocked.getDocs.mockResolvedValueOnce(
+      querySnapshot([{ id: "2", data: { accountName: "Antigo", amount: 10 } }]) as never,
+    );
+    const outros = await listCostsForReport("uid-1", {
+      startDate: "2026-11-01",
+      endDate: "2026-11-30",
+      costType: "todos",
+      category: "outros",
+    });
+    expect(outros.map((entry) => entry.id)).toEqual(["2"]);
+  });
+
   it("rejeita intervalo invalido sem consultar o Firestore", async () => {
     await expect(
       listCostsForReport("uid-1", {

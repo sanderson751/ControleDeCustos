@@ -7,7 +7,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 /** Exibe o caminho atual para asserts de navegacao. */
 export function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{location.pathname}</output>;
+  return (
+    <output data-testid="location">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
 }
 
 type RenderRouteOptions = {

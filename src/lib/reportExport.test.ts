@@ -12,6 +12,7 @@ describe("buildCsvContent", () => {
         accountName: 'Mercado "Central"',
         amount: 1234.5,
         costType: "fixo",
+        category: "alimentacao",
         installmentsTotal: 3,
         competenceMonth: 4,
         competenceYear: 2026,
@@ -22,10 +23,10 @@ describe("buildCsvContent", () => {
     expect(csv.startsWith("﻿")).toBe(true);
     const [header, row] = csv.slice(1).split("\n");
     expect(header).toBe(
-      '"Conta";"Frente";"Valor";"Data de criação";"Competência";"Parcelas"',
+      '"Conta";"Categoria";"Frente";"Valor";"Data de criação";"Competência";"Parcelas"',
     );
     expect(row).toBe(
-      '"Mercado ""Central""";"Fixo";"1234,50";"02/04/2026";"04/2026";"3"',
+      '"Mercado ""Central""";"Alimentação";"Fixo";"1234,50";"02/04/2026";"04/2026";"3"',
     );
   });
 });
