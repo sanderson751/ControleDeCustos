@@ -13,6 +13,7 @@ describe("navigation", () => {
       "home",
       "costs",
       "budgets",
+      "evolution",
       "reports",
       "userProfiles",
     ]);
@@ -20,6 +21,7 @@ describe("navigation", () => {
       "home",
       "costs",
       "budgets",
+      "evolution",
       "reports",
     ]);
     expect(
@@ -35,7 +37,7 @@ describe("navigation", () => {
   });
 
   it("preserva a competencia apenas nos itens que trabalham por mes", () => {
-    const [home, , budgets, reports] = getNavigationForRole("standard");
+    const [home, , budgets, , reports] = getNavigationForRole("standard");
     expect(buildNavigationTarget(home, "?mes=2026-02")).toBe("/home?mes=2026-02");
     expect(buildNavigationTarget(budgets, "?mes=2026-02&x=1")).toBe(
       "/budgets?mes=2026-02",

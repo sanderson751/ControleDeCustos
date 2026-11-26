@@ -43,6 +43,9 @@
   --chart-3: #dd90d8;
   --chart-4: #90b8f0;
   --chart-5: #4b49aa;
+  /* Grafico de evolucao (paleta validada: CVD, luminosidade, contraste vs #ffffff) */
+  --chart-spent: #6c63f2;
+  --chart-budget: #0a92b8;
 
   --sidebar: #ffffff;
   --sidebar-foreground: #0f1011;
@@ -87,6 +90,10 @@
   --input: rgb(255 255 255 / 0.15);
   --input-background: #000000; /* Void */
   --ring: #847dff; /* Iris Gleam */
+
+  /* Grafico de evolucao (paleta validada contra a superficie dos cards #1b1c1d) */
+  --chart-spent: #847dff;
+  --chart-budget: #0aa6cf;
 
   --sidebar: #090a0b; /* Abyss */
   --sidebar-foreground: #f5f5f7;
@@ -135,6 +142,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-spent: var(--chart-spent);
+  --color-chart-budget: var(--chart-budget);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

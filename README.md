@@ -41,6 +41,7 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
 - Parcelamento de custos fixos (um lançamento por competência).
 - Orçamento por categoria só no mês ou recorrente ("este mês em diante", com histórico de vigências), com consumo, status e cópia do mês anterior.
 - Alertas ao atingir 80% e ao estourar 100% do orçamento (no Início e ao cadastrar um custo).
+- Evolução mensal: gráfico de gasto x orçamento por mês (6 ou 12 meses), filtros por categoria e frente, indicadores do período e visão em tabela.
 - Relatórios por período, frente e categoria, com exportação CSV e PDF.
 - Gestão de perfis de usuários (admin).
 - Tema light/dark e menu lateral retrátil com preferência salva no Firestore.

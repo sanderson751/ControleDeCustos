@@ -11,6 +11,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import type {
+  Competence,
   CostEntry,
   NewCostInput,
   UpdateCostInput,
@@ -117,4 +118,32 @@ export async function deleteCostEntry(
   entryId: string,
 ): Promise<void> {
   await deleteDoc(costEntryDocRef(userId, entryId));
+}
+
+/**
+ * Custos de um intervalo de competencias (inclusive). Uma consulta `in` por
+ * ano de competencia; meses fora do intervalo sao descartados no client.
+ */
+export async function listCostsByCompetenceRange(
+  userId: string,
+  from: Competence,
+  to: Competence,
+): Promise<CostEntry[]> {
+  const fromIndex = from.year * 12 + from.month;
+  const toIndex = to.year * 12 + to.month;
+  const years = Array.from(
+    { length: to.year - from.year + 1 },
+    (_, index) => from.year + index,
+  );
+
+  const snapshot = await getDocs(
+    query(costEntriesCollectionRef(userId), where("competenceYear", "in", years)),
+  );
+
+  return snapshot.docs
+    .map((docSnapshot) => toCostEntry(docSnapshot.id, docSnapshot.data()))
+    .filter((entry) => {
+      const index = entry.competenceYear * 12 + entry.competenceMonth;
+      return index >= fromIndex && index <= toIndex;
+    });
 }
