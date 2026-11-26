@@ -50,11 +50,13 @@ A alternancia ocorre por botao icon-only na appbar com tooltip descritiva e pers
 ## Persistencia e integracoes
 
 Persistencia no Firestore:
+
 - `users/{uid}/settings/profile`
   - `ui.theme`: `light` | `dark`
   - `updatedAt`: Timestamp
 
 Integracoes:
+
 - Firestore para ler/gravar preferencia de tema.
 - `react-tooltip` para tooltip no botao de tema.
 - Material Design Icons Community (`@mdi/react` + `@mdi/js`) para icones.
@@ -69,7 +71,7 @@ Integracoes:
   - `[data-theme="light"]`
   - `[data-theme="dark"]`
 - Garantir que appbar, sidebar, cards e textos usem tokens em vez de cores hardcoded.
-- Mapear variaveis Bootstrap (`--bs-*`) para os tokens do tema ativo no shell.
+- Componentes shadcn/ui devem consumir apenas os tokens semanticos do tema definidos em `src/index.css` (sem cores fixas).
 - Garantir contraste AA em ambos os temas para textos e elementos interativos.
 - Definir tokens de snackbar por status (erro/sucesso/warning) mantendo legibilidade em ambos os temas.
 

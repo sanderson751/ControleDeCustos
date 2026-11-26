@@ -28,10 +28,11 @@ Garantir qualidade funcional e prevencao de regressao antes do merge.
 - Validar que operacoes de escrita da feature persistem no Firebase Firestore (create/update/delete conforme escopo).
 - Validar comportamento em falha de persistencia (erro de rede/permissao) com feedback ao usuario.
 - Rejeitar entrega quando houver divergencia entre estado apresentado na UI e dado persistido no Firestore.
+- Validar as regras de seguranca no emulador (`npm run test:rules`) para toda feature que altera escrita ou modelo de dados.
 
 ## Criterios obrigatorios de validacao de lint
 
-- Executar `npm run lint` durante a validacao da entrega.
+- Executar `npm run verify` (typecheck + lint + testes) durante a validacao da entrega.
 - Rejeitar entrega com erro de lint.
 - Validar aderencia das regras de hooks, especialmente `react-hooks/rules-of-hooks` e `react-hooks/exhaustive-deps`.
 

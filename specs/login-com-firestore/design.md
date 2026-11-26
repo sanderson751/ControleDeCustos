@@ -2,12 +2,12 @@
 
 ## Visao de solucao
 
-Implementar autenticacao com Auth.js em dois provedores (credentials com Firebase Identity Toolkit e Google), sincronizando dados minimos do usuario no Firestore via servicos server-side e redirecionando para a aplicacao principal em `/home` apos sucesso.
+Implementar autenticacao com Firebase Authentication no client (email/senha e Google via popup), sincronizando dados minimos do usuario em `users/{uid}` com uma transacao do Firestore (validada por `firestore.rules`) e redirecionando para a aplicacao principal em `/home` apos sucesso. (Atualizado em 2026-11: a versao anterior usava Auth.js + servicos server-side no Next.js.)
 
 Padrao visual transversal:
 
-- utilizar Material Design Icons Community (`@mdi/react` + `@mdi/js`) em controles de navegacao globais.
-- quando houver menu retraido, usar tooltip com `react-tooltip` para itens icon-only.
+- utilizar icones `lucide-react` em controles de navegacao globais.
+- quando houver menu retraido, usar `Tooltip` do shadcn/ui para itens icon-only.
 - aplicar tokens semanticos de tema para textos e estados de feedback (erro/alerta).
 
 ## Componentes e modulos
@@ -23,13 +23,13 @@ Padrao visual transversal:
 - `AuthService`:
   - `loginWithEmailPassword(email, password)`
   - `loginWithGoogle()`
-- `AuthConfig` (`src/auth.ts`):
-  - providers `credentials` e `google`
-  - callbacks `signIn`, `jwt` e `session`
-- `UserProfileService` server-side:
-  - `upsertUserProfile(authUser)`
-  - `findUserByEmail(email)` e validacao de unicidade entre provedores
-- `Middleware` + layout protegido:
+- `AuthProvider` (`src/providers/AuthProvider.tsx`):
+  - estado `loading`/`authenticated`/`unauthenticated`/`error`
+  - perfil e role em tempo real via `onSnapshot`
+- `userService` (client):
+  - `ensureUserProfile(user)` e `subscribeToUserProfile(uid)`
+  - unicidade de email garantida pelo Firebase Auth ("uma conta por email")
+- Guards de rota (`src/routes/guards.tsx`):
   - bloqueia acesso nao autenticado
   - libera e redireciona autenticado para `/home`
 
@@ -37,24 +37,24 @@ Padrao visual transversal:
 
 1. Usuario acessa tela de login.
 2. Usuario autentica por email/senha ou Google.
-3. Auth.js recebe `uid` e dados do provedor autenticado.
-4. Sistema executa upsert em `users/{uid}` no Firestore no callback de `signIn`.
-5. Sistema cria sessao JWT e redireciona para `/home`.
+3. `onAuthStateChanged` (AuthProvider) recebe o usuario do Firebase Auth.
+4. `ensureUserProfile` cria (role `standard`) ou atualiza `users/{uid}` em transacao, sem alterar `role`/`createdAt`.
+5. O AuthProvider assina o perfil em tempo real e o `PublicOnlyRoute` redireciona para `/home`.
 
 ## Fluxo de erro
 
 1. Firebase retorna erro de autenticacao.
 2. Sistema classifica erro de credenciais:
 
-- email inexistente -> "Usuario nao existe."
-- email existente + senha invalida -> "As informacoes estao incorretas."
+- credenciais invalidas (email inexistente ou senha incorreta) -> "Email ou senha incorretos."
+- demais erros mapeados em `src/lib/errors.ts` (`friendlyAuthErrorMessage`).
 
 3. Sistema mapeia erro tecnico para mensagem amigavel.
 4. Usuario permanece na tela de login sem redirecionamento.
 
 ## Unicidade de email
 
-- O backend valida email unico de forma case-insensitive usando `emailNormalized` em `users/{uid}`.
+- A unicidade de email e garantida pelo Firebase Auth; `emailNormalized` continua salvo em `users/{uid}` para consultas.
 - Cadastro por email/senha e login por Google nao podem criar duas contas com o mesmo email.
 - Quando detectar conflito entre provedores para o mesmo email, o fluxo e bloqueado com mensagem amigavel de email ja em uso.
 
@@ -82,7 +82,7 @@ Campos:
 - preservar `createdAt` em atualizacoes.
 - armazenar apenas dados necessarios para perfil basico.
 - abstrair chamada de auth/firestore em servicos para facilitar testes.
-- toda escrita em Firestore deve ocorrer no servidor Next.js.
+- toda escrita em Firestore ocorre via `src/services` no client e e autorizada/validada por `firestore.rules`.
 
 ## Compatibilidade de tema e contraste
 
@@ -94,5 +94,5 @@ Campos:
 ## Roteamento esperado
 
 - rota publica: `/login`
-- rotas protegidas: `/home`, `/costs`, `/costs/[costId]/edit`, `/userProfiles`
+- rotas protegidas: `/home`, `/costs`, `/costs/:costId/edit`, `/reports`, `/userProfiles` (admin)
 - em autenticacao valida, navegar para `/home`.

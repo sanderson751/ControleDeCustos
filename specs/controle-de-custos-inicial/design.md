@@ -93,14 +93,14 @@ Padrao visual transversal:
 - Escritas com `serverTimestamp()` para `createdAt` e `updatedAt` quando a data manual nao for informada.
 - Em cadastro de custo fixo parcelado, criar um documento por parcela em meses subsequentes (incremento mensal da competencia).
 - Leitura por consultas indexadas por `userId`, `competenceYear`, `competenceMonth` e `costType`.
-- Leitura para relatorios usando endpoint dedicado (`/api/reports/costs`) com filtro por `createdAt` (inicio/fim) e `costType` opcional.
+- Leitura para relatorios via `listCostsForReport` (`src/services/reportService.ts`, Firestore client) com filtro por `createdAt` (inicio/fim) e `costType` opcional.
 - Estrutura detalhada em `specs/controle-de-custos-inicial/firestore-structure.md`.
 - Controle de acesso aplicado no frontend com ocultacao de acoes sem permissao.
 
 ## Compatibilidade de tema e contraste
 
 - Componentes da feature devem respeitar tokens globais de tema (`light`/`dark`).
-- Variaveis Bootstrap utilizadas pela feature devem derivar dos tokens do tema ativo.
+- Componentes shadcn/ui devem consumir apenas os tokens semanticos do tema definidos em `src/index.css` (sem cores fixas).
 - Garantir contraste minimo AA em tabelas, formularios e cards de relatorio.
 - Snackbar de erro/sucesso/warning deve ser exibido no topo direito, por 3s, com opcao de fechar via `X`.
 - Tokens de cor para snackbar devem respeitar status: vermelho, verde e amarelo.

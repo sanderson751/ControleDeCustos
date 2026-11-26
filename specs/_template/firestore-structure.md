@@ -10,9 +10,11 @@
 ### 1) <nome-da-colecao-principal>
 
 Caminho:
+
 - `users/{userId}/<colecao>/{docId}`
 
 Campos:
+
 - `userId`: string
 - `year`: number
 - `month`: number

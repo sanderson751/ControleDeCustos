@@ -1,0 +1,123 @@
+import { screen, waitFor, within } from "@testing-library/react";
+import type { UserRole } from "@/domain/entities/user";
+import { notify } from "@/lib/notify";
+import CostEditPage from "@/pages/CostEditPage";
+import { useSession } from "@/providers/AuthProvider";
+import { getCostEntryById, updateCostEntry } from "@/services/costService";
+import { makeCostEntry, makeProfile } from "@/test/factories";
+import { renderWithRouter } from "@/test/render";
+
+vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
+vi.mock("@/lib/notify", () => ({ notify: vi.fn() }));
+vi.mock("@/services/costService", () => ({
+  getCostEntryById: vi.fn(),
+  updateCostEntry: vi.fn(),
+}));
+
+const mockedUseSession = vi.mocked(useSession);
+const mockedGet = vi.mocked(getCostEntryById);
+const mockedUpdate = vi.mocked(updateCostEntry);
+const mockedNotify = vi.mocked(notify);
+
+function setup(role: UserRole = "standard") {
+  const profile = makeProfile(role);
+  mockedUseSession.mockReturnValue({ profile, firebaseUser: {} as never });
+  return {
+    profile,
+    ...renderWithRouter(<CostEditPage />, {
+      route: "/costs/cost-9/edit",
+      path: "/costs/:costId/edit",
+    }),
+  };
+}
+
+describe("CostEditPage", () => {
+  beforeEach(() => {
+    mockedUpdate.mockResolvedValue(undefined);
+  });
+
+  it("carrega o custo e salva alteracoes", async () => {
+    mockedGet.mockResolvedValue(
+      makeCostEntry({
+        id: "cost-9",
+        accountName: "Academia",
+        amount: 120,
+        costType: "variavel",
+      }),
+    );
+    const { user, profile } = setup();
+
+    const accountInput = await screen.findByLabelText("Conta");
+    expect(mockedGet).toHaveBeenCalledWith(profile.userId, "cost-9");
+    expect(accountInput).toHaveValue("Academia");
+    expect(screen.getByLabelText("Valor")).toHaveValue("R$ 120,00");
+
+    await user.clear(accountInput);
+    await user.type(accountInput, "Academia premium");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdate).toHaveBeenCalledWith(profile.userId, "cost-9", {
+        accountName: "Academia premium",
+        amount: 120,
+        costType: "variavel",
+        installmentsTotal: 1,
+      }),
+    );
+    expect(mockedNotify).toHaveBeenCalledWith(
+      "success",
+      "Custo atualizado com sucesso.",
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent("/costs");
+  });
+
+  it("mostra parcelas apenas quando a frente e fixa", async () => {
+    mockedGet.mockResolvedValue(
+      makeCostEntry({ costType: "fixo", installmentsTotal: 6 }),
+    );
+    const { user } = setup();
+
+    expect(await screen.findByLabelText("Parcelas")).toHaveValue(6);
+
+    const frente = screen.getByRole("group", { name: "Frente do custo" });
+    await user.click(within(frente).getByRole("button", { name: "Variável" }));
+
+    expect(screen.queryByLabelText("Parcelas")).not.toBeInTheDocument();
+  });
+
+  it("volta para a listagem quando o custo nao existe", async () => {
+    mockedGet.mockResolvedValue(null);
+    setup();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/costs"),
+    );
+    expect(mockedNotify).toHaveBeenCalledWith(
+      "warning",
+      "Custo não encontrado para edição.",
+    );
+  });
+
+  it("valida o formulario antes de salvar", async () => {
+    mockedGet.mockResolvedValue(makeCostEntry({ accountName: "Luz" }));
+    const { user } = setup();
+
+    await user.clear(await screen.findByLabelText("Conta"));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(mockedNotify).toHaveBeenCalledWith(
+      "warning",
+      "Informe o nome da conta.",
+    );
+  });
+
+  it("bloqueia edicao para guest", () => {
+    setup("guest");
+
+    expect(
+      screen.getByText("Você não possui permissão para editar custos."),
+    ).toBeInTheDocument();
+    expect(mockedGet).not.toHaveBeenCalled();
+  });
+});

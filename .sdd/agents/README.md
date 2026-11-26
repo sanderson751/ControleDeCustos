@@ -26,7 +26,14 @@ Este diretório concentra os contextos por papel para orientar prompts e entrega
 - Toda feature com dados deve persistir no Firebase Firestore (nao apenas em estado local).
 - Toda nova spec deve explicitar a persistencia em `requirements.md`, `tasks.md` e `firestore-structure.md`.
 - Toda nova spec deve aplicar o checklist unico: `specs/_template/dod-checklist.md`.
-- Toda entrega deve encerrar sem erros de lint (`npm run lint`), incluindo conformidade de hooks (`rules-of-hooks` e `exhaustive-deps`).
+- Toda entrega deve encerrar com `npm run verify` sem erros, incluindo conformidade de hooks (`rules-of-hooks` e `exhaustive-deps`).
+- Escritas novas no Firestore exigem regra em `firestore.rules` com teste no emulador (`npm run test:rules`).
+
+## Uso com Claude Code
+
+Cada contexto possui um agente correspondente em `.claude/agents/<papel>.md`, que le este
+arquivo como fonte da verdade (mapeamento completo em `CLAUDE.md`). As skills `/sdd-feature`,
+`/sdd-dod`, `/abrir-pr` e `/firebase-deploy` em `.claude/skills/` orquestram o fluxo.
 
 ## Exemplo de uso rapido
 

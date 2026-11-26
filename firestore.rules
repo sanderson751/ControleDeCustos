@@ -1,27 +1,119 @@
 rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// Controle de Custos — regras de seguranca do Firestore
+//
+// O app e uma SPA sem backend: estas regras sao a UNICA barreira de seguranca.
+// A matriz de permissoes da UI (src/domain/rules/permissions.ts) deve
+// permanecer espelhada aqui.
+//
+//   admin    -> CRUD nos proprios custos + gestao de nome/papel de outros usuarios
+//   standard -> CRUD nos proprios custos
+//   guest    -> somente leitura dos proprios custos
+// ---------------------------------------------------------------------------
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function requesterPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function currentRole() {
+      return isSignedIn() && exists(requesterPath())
+        ? get(requesterPath()).data.get('role', 'standard')
+        : 'none';
+    }
+
+    function isAdmin() {
+      return currentRole() == 'admin';
+    }
+
+    function canWriteCosts() {
+      return currentRole() in ['admin', 'standard'];
+    }
+
+    function isValidRole(role) {
+      return role in ['admin', 'standard', 'guest'];
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isValidCost(data) {
+      return data.accountName is string
+        && data.accountName.size() > 0
+        && data.accountName.size() <= 200
+        && data.amount is number
+        && data.amount > 0
+        && data.costType in ['fixo', 'variavel']
+        && data.installmentsTotal is int
+        && data.installmentsTotal >= 1
+        && data.installmentsTotal <= 120
+        && data.competenceYear is int
+        && data.competenceMonth is int
+        && data.competenceMonth >= 1
+        && data.competenceMonth <= 12;
+    }
+
     match /users/{userId} {
-      allow create: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.data.uid == userId;
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
 
-      allow read, update, delete: if request.auth != null
-        && request.auth.uid == userId;
+      // Cadastro do proprio perfil: sempre com papel padrao (nunca auto-promocao).
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.role == 'standard';
 
+      // O proprio usuario atualiza dados de login/nome, mas nunca o papel.
+      allow update: if isOwner(userId)
+        && !changedKeys().hasAny(['role', 'createdAt'])
+        && request.resource.data.get('uid', userId) == userId;
+
+      // Admin altera somente nome e papel de OUTROS usuarios
+      // (impede que o ultimo admin remova o proprio acesso).
+      allow update: if isAdmin()
+        && request.auth.uid != userId
+        && changedKeys().hasOnly(['displayName', 'role', 'updatedAt'])
+        && isValidRole(request.resource.data.role)
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0;
+
+      allow delete: if false;
+
+      // Preferencias de interface (tema, menu) — pessoais, inclusive para guest.
       match /settings/{docId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
 
       match /costEntries/{entryId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidCost(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.get('userId', userId) == userId
+          && !changedKeys().hasAny(['userId', 'createdAt'])
+          && isValidCost(request.resource.data);
+
+        allow delete: if isOwner(userId) && canWriteCosts();
       }
 
       match /budgetLimits/{budgetId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && canWriteCosts();
       }
     }
   }

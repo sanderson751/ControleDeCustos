@@ -1,122 +1,126 @@
 # Controle de Custos - Portfolio SDD + IA
 
-Projeto de portfolio focado em engenharia de software orientada por especificacao (SDD), com implementacao assistida por IA de ponta a ponta.
+Projeto de portfolio focado em engenharia de software orientada por especificação (SDD), com implementação assistida por IA de ponta a ponta.
 
-Objetivo: demonstrar como transformar requisitos em software com previsibilidade, rastreabilidade e qualidade tecnica, sem codificacao manual direta pelo desenvolvedor.
+Objetivo: demonstrar como transformar requisitos em software com previsibilidade, rastreabilidade e qualidade técnica, sem codificação manual direta pelo desenvolvedor.
 
 ## Resumo executivo
 
-- Dominio: gestao de custos pessoais/operacionais com relatorios e controle de acesso.
-- Metodo: SDD (Spec-Driven Development) como fluxo principal.
-- Implementacao: gerada por IA sob direcao, revisao e validacao humana.
-- Stack: Next.js + React + TypeScript + Firebase Firestore.
-- Qualidade: lint, testes automatizados e gates de persistencia.
+- Domínio: gestão de custos pessoais/operacionais com relatórios e controle de acesso.
+- Método: SDD (Spec-Driven Development) como fluxo principal.
+- Implementação: gerada por IA sob direção, revisão e validação humana.
+- Stack: React 19 + Vite + TypeScript + Tailwind CSS v4 + shadcn/ui + Firebase (Auth, Firestore, Hosting).
+- Qualidade: typecheck, lint, testes unitários, testes de regras de segurança no emulador e merge somente via Pull Request.
 
-## Status de publicacao (importante para avaliacao)
+## Arquitetura
 
-- Este projeto nao esta publicado em URL publica no momento.
-- Motivo tecnico: o deploy de Next.js SSR no Firebase Hosting exige Cloud Functions + Artifact Registry, que requer plano Blaze (pay-as-you-go) no projeto Firebase.
-- O codigo esta pronto para deploy, com build de producao validado localmente.
-- Para avaliacao tecnica, execute localmente com `npm install` e `npm run dev`.
+SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem servidor próprio:
+
+- **Firebase Authentication** (email/senha e Google) direto no navegador.
+- **Cloud Firestore** via SDK client, protegido por [`firestore.rules`](firestore.rules) — a camada de segurança do sistema (papéis `admin`, `standard`, `guest`, dono do dado e validação de tipos/limites), com testes automatizados no emulador.
+- Regras de negócio em funções puras (`src/domain/rules`) e acesso a dados isolado em `src/services`.
+
+> A versão anterior usava Next.js com SSR, que exige Cloud Functions (plano Blaze). A migração para SPA está documentada em [`specs/migracao-spa-vite`](specs/migracao-spa-vite/requirements.md).
 
 ## O que foi usado
 
-- Frontend: Next.js 15 (App Router), React 18, TypeScript.
-- UI: Bootstrap 5, Material Design Icons, React Tooltip.
-- Autenticacao: NextAuth.
-- Persistencia: Firebase Firestore (client + admin).
-- Exportacao de relatorios: jsPDF + jspdf-autotable, CSV.
-- Testes: Jest + React Testing Library.
-- Qualidade estatica: ESLint 9 (flat config) com foco em regras de React Hooks.
+- Build: Vite 8 (code splitting por rota e chunks de vendor).
+- UI: React 19, React Router 8, Tailwind CSS v4, shadcn/ui (Radix), lucide-react, Sonner.
+- Visual: estilo *Origin Financial* — dark como padrão, tiles cromáticos, tipografia serifada leve (Fraunces), Inter e Roboto Mono — com variante light.
+- Dados: Firebase Auth + Cloud Firestore (client).
+- Exportação de relatórios: jsPDF + jspdf-autotable (carregados sob demanda) e CSV.
+- Testes: Vitest + React Testing Library; `@firebase/rules-unit-testing` para as regras.
+- Qualidade estática: ESLint 10 (flat config) + typescript-eslint + regras de React Hooks.
 
-## O que foi implementado nesta versao
+## Funcionalidades
 
-- Autenticacao e sessao de usuario.
-- Controle de acesso por papeis (Admin, Standard, Guest).
-- Fluxo de custos com cadastro, listagem, edicao e remocao.
-- Regras de negocio para custos fixos e variaveis.
-- Relatorios com filtros por periodo e tipo de custo.
-- Exportacao de relatorios em CSV e PDF.
-- App shell com menu lateral, app bar e preferencias de interface.
-- Feedback visual padronizado para sucesso, erro e warning.
-- Persistencia em Firestore como fonte final de verdade.
+- Login com email/senha e Google; cadastro de conta.
+- Controle de acesso por papéis (Admin, Standard, Guest) na UI e nas regras do Firestore.
+- Dashboard do mês com totais de custos fixos e variáveis.
+- Cadastro rápido, listagem com filtro e paginação, edição e exclusão (com confirmação) de custos.
+- Parcelamento de custos fixos (um lançamento por competência).
+- Relatórios por período e frente, com exportação CSV e PDF.
+- Gestão de perfis de usuários (admin).
+- Tema light/dark e menu lateral retrátil com preferência salva no Firestore.
+- Feedback padronizado (snackbar) para sucesso, erro e warning.
 
-## Praticas de engenharia destacadas
+## Práticas de engenharia destacadas
 
 - SDD como contrato de desenvolvimento:
-  - requisitos em specs/<feature>/requirements.md
-  - desenho tecnico em specs/<feature>/design.md
-  - plano de execucao em specs/<feature>/tasks.md
-  - estrutura de dados em specs/<feature>/firestore-structure.md
-- Steering tecnico centralizado em .sdd/steering.
-- Agentes por papel em .sdd/agents para padronizar qualidade de decisao.
-- Gate obrigatorio de persistencia (nao concluir feature de dados sem Firestore).
-- Gate obrigatorio de qualidade:
-  - npm run lint sem erros
-  - conformidade com react-hooks/rules-of-hooks e react-hooks/exhaustive-deps
-  - testes automatizados para fluxos criticos e regressao
+  - requisitos em `specs/<feature>/requirements.md`
+  - desenho técnico em `specs/<feature>/design.md`
+  - plano de execução em `specs/<feature>/tasks.md`
+  - estrutura de dados e regras em `specs/<feature>/firestore-structure.md`
+- Steering técnico centralizado em `.sdd/steering`.
+- Agentes por papel em `.sdd/agents`, mapeados para agentes e skills do Claude Code em `.claude/` (ver [`CLAUDE.md`](CLAUDE.md)).
+- Gate obrigatório de persistência e segurança: toda escrita no Firestore tem regra e teste no emulador.
+- Gate obrigatório de qualidade: `npm run verify` (typecheck + lint + testes) antes de todo PR.
+- Branch `main` protegida: alterações entram somente via Pull Request.
 
 ## Como rodar localmente
 
-Pre-requisitos:
+Pré-requisitos:
 
-- Node.js 20+
-- npm 10+
-- Projeto Firebase configurado
+- Node.js 20.19+ e npm 10+
+- Projeto Firebase com Authentication (Email/senha e Google) e Firestore habilitados
+- Java 11+ (apenas para `npm run test:rules`)
 
-Instalacao e execucao:
+Configuração:
 
-1. npm install
-2. npm run dev
-3. acessar http://localhost:3000
+1. `npm install`
+2. Copie `.env.example` para `.env.local` e preencha as variáveis `VITE_FIREBASE_*` do app Web.
+3. Copie `.firebaserc.example` para `.firebaserc` e informe o ID do projeto.
+4. `npm run dev` e acesse http://localhost:5173
 
-Build e producao:
+Primeiro administrador: todo usuário novo nasce com papel `standard`. Promova o primeiro admin
+alterando `role` para `"admin"` no documento `users/{uid}` pelo Console do Firebase.
 
-1. npm run build
-2. npm run start
+## Scripts
 
-Qualidade:
+| Comando | Descrição |
+| --- | --- |
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` / `npm run preview` | Build de produção e pré-visualização |
+| `npm run verify` | Typecheck + lint + testes unitários (gate de PR) |
+| `npm run test` / `npm run test:coverage` | Testes unitários / cobertura |
+| `npm run test:rules` | Testes das regras do Firestore no emulador |
+| `npm run lint` / `npm run lint:fix` | ESLint |
+| `npm run firestore:deploy` | Publica regras e índices do Firestore |
+| `npm run deploy` | Verify + build + deploy no Firebase Hosting |
+| `npm run migrate:legacy-google-users` | Migração única de usuários Google da versão Next.js (simulação; `-- --apply` executa) |
 
-1. npm run lint
-2. npm run lint:fix
-3. npm run test
-4. npm run test:coverage
+## Estrutura principal do repositório
 
-Firestore:
-
-1. npm run firestore:deploy
-
-## Estrutura principal do repositorio
-
-- src/app: rotas, layouts e paginas (incluindo areas protegidas e APIs).
-- src/components: componentes de interface e shell autenticado.
-- src/services: servicos de dominio e integracao.
-- src/hooks: hooks customizados de estado e permissoes.
-- src/views: telas de negocio e testes de interface.
-- specs: especificacoes funcionais por feature.
-- .sdd: guias de steering e contextos de agentes.
+- `src/domain`: entidades e regras puras de negócio.
+- `src/services`: integração com Firebase Auth e Firestore.
+- `src/providers`, `src/hooks`: sessão, tema e estado.
+- `src/routes`, `src/pages`: roteamento, guards e telas.
+- `src/components`: shadcn/ui (`ui/`), layout, componentes compartilhados e de domínio.
+- `tests/rules`: testes das regras de segurança.
+- `specs`: especificações funcionais por feature.
+- `.sdd`: steering e contextos de agentes; `.claude`: agentes e skills do Claude Code.
 
 ## Proposta de valor para recrutadores e tech leads
 
 Este projeto demonstra capacidade de:
 
-- estruturar produto com clareza de requisitos e criterios de aceite.
-- manter rastreabilidade entre especificacao, implementacao e qualidade.
-- operar um fluxo moderno de desenvolvimento com IA de forma disciplinada.
-- aplicar gates tecnicos para reduzir regressao e ambiguidade.
-- entregar software funcional com foco em arquitetura, processo e consistencia.
+- estruturar produto com clareza de requisitos e critérios de aceite;
+- manter rastreabilidade entre especificação, implementação e qualidade;
+- operar um fluxo moderno de desenvolvimento com IA de forma disciplinada;
+- aplicar gates técnicos e de segurança para reduzir regressão e ambiguidade;
+- entregar software funcional com foco em arquitetura, processo e consistência.
 
-## Transparencia sobre uso de IA
+## Transparência sobre uso de IA
 
-- O codigo deste projeto foi produzido integralmente com suporte de IA.
+- O código deste projeto foi produzido integralmente com suporte de IA.
 - O papel do desenvolvedor foi liderar produto e engenharia:
   - definir contexto e requisitos
-  - conduzir especificacoes
+  - conduzir especificações
   - revisar arquitetura e qualidade
-  - validar comportamento, testes e criterios de pronto
+  - validar comportamento, testes e critérios de pronto
 
-Em outras palavras: menos digitacao manual, mais engenharia de decisao.
+Em outras palavras: menos digitação manual, mais engenharia de decisão.
 
-## Licenca
+## Licença
 
 Consulte LICENSE para detalhes.

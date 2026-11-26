@@ -10,14 +10,17 @@
 ### 1) users/{userId} - Extensão do documento de perfil
 
 Caminho:
+
 - `users/{userId}`
 
 Campos adicionados:
+
 - `role`: string (enum: "admin", "standard", "guest")
-  - valor padrão para primeiro usuário: "admin"
+  - todo usuário criado pelo app nasce "standard" (garantido por `firestore.rules`); o primeiro admin é promovido manualmente no Console do Firebase
   - valor padrão para novos usuários: "standard"
 
 Campos existentes preservados:
+
 - `displayName`: string
 - `email`: string
 - `currency`: string (ex.: "BRL")
@@ -40,7 +43,7 @@ Exemplo de documento atualizado:
 
 ## Subcolecções (sem alterações estruturais)
 
-As subcolecções existentes (`costEntries`, `budgetLimits`, etc.) não sofrem alterações estruturais diretas. 
+As subcolecções existentes (`costEntries`, `budgetLimits`, etc.) não sofrem alterações estruturais diretas.
 O controle de acesso é aplicado em nível de aplicação através de verificações de $role antes de exibir/permitir operações.
 
 ### Referência de subcolecções existentes:
@@ -59,12 +62,14 @@ O controle de acesso é aplicado em nível de aplicação através de verificaç
 ## Consultas principais
 
 ### Consulta 1: Carregar role do usuário autenticado
+
 ```
 db.collection('users').doc(userId).get()
   .then(doc => doc.data().role)
 ```
 
 ### Consulta 2: Atualizar role de um usuário (Admin only)
+
 ```
 db.collection('users').doc(targetUserId).update({
   role: 'admin' | 'standard' | 'guest',
@@ -73,6 +78,7 @@ db.collection('users').doc(targetUserId).update({
 ```
 
 ### Consulta 3: Listar todos os usuários com suas roles (Admin only)
+
 ```
 db.collection('users')
   .select('displayName', 'email', 'role', 'createdAt')
@@ -81,6 +87,7 @@ db.collection('users')
 ```
 
 ### Consulta 4: Contar usuários por role (Analytics, future)
+
 ```
 db.collection('users')
   .where('role', '==', 'admin')
@@ -98,6 +105,7 @@ db.collection('users')
 ## Índices compostos sugeridos
 
 Nenhum índice composto é necessário inicialmente, pois:
+
 - Leitura de role é por documento individual (userId)
 - Listagem de todos os usuários é uma única coleção sem filtros compostos
 - Filtros por role são utilizados apenas para analytics (implementado posteriormente)
@@ -105,6 +113,7 @@ Nenhum índice composto é necessário inicialmente, pois:
 ## Migração de dados existentes
 
 Ao implementar a feature:
+
 1. O usuário existente no banco (primeiro usuário criado) deve ter `role: "admin"` adicionado
 2. Novos usuários criados após a feature terão `role: "standard"` por padrão
 3. Query de atualização obrigatória antes de ativar feature completa:
@@ -121,20 +130,20 @@ Para cada documento em users/:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Leitura próprio perfil: sempre permitido
     match /users/{userId} {
       allow read: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId && 
+      allow update: if request.auth.uid == userId &&
                        !request.resource.data.role.changed();
     }
-    
+
     // Gestão de roles: somente admin
     match /users/{targetUserId} {
-      allow write: if isAdmin(request.auth.uid) && 
+      allow write: if isAdmin(request.auth.uid) &&
                       hasRole('admin');
     }
-    
+
     // subcolecções: aplicar permissões por role
     match /users/{userId}/costEntries/{entryId} {
       allow read: if canView(request.auth.uid);
@@ -142,7 +151,7 @@ service cloud.firestore {
       allow delete: if canDelete(request.auth.uid);
     }
   }
-  
+
   function isAdmin(uid) {
     return get(/databases/$(database)/documents/users/$(uid)).data.role == 'admin';
   }

@@ -29,7 +29,7 @@ Resumo da abordagem tecnica.
 ## Compatibilidade de tema e contraste (obrigatorio)
 
 - Definir tokens semanticos de cor para texto, fundo, borda, botoes e alertas.
-- Mapear variaveis de framework (ex.: Bootstrap `--bs-*`) para tokens do tema ativo.
+- Componentes (shadcn/ui) devem consumir apenas tokens semanticos do tema definidos em `src/index.css`.
 - Evitar cores hardcoded para textos e estados criticos em componentes tematicos.
 - Garantir legibilidade nos estados: default, hover, focus, active, disabled, warning e error.
 
