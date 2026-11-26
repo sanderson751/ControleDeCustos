@@ -10,9 +10,11 @@
 ### 1) Preferencias de interface
 
 Caminho:
+
 - `users/{userId}/settings/profile`
 
 Campos:
+
 - `userId`: string
 - `ui`: map
   - `sidebarCollapsed`: boolean

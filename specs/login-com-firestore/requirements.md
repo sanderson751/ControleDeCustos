@@ -6,17 +6,17 @@ Como usuario do sistema de controle de custos, quero autenticar com email/senha 
 
 ## Requisitos funcionais
 
-- RF-01: permitir login com email e senha via Auth.js usando Firebase Identity Toolkit como backend de credenciais.
-- RF-02: permitir login com conta Google via Auth.js.
-- RF-03: apos autenticacao bem-sucedida, redirecionar para a rota protegida `/home` do Next.js App Router.
-- RF-04: garantir existencia do documento `users/{uid}` no Firestore apos login, por meio de service server-side.
-- RF-05: no primeiro login, criar documento do usuario com dados basicos e role padrao coerente com a base existente.
+- RF-01: permitir login com email e senha via Firebase Authentication (SDK client).
+- RF-02: permitir login com conta Google via Firebase Authentication (popup).
+- RF-03: apos autenticacao bem-sucedida, redirecionar para a rota protegida `/home` (ou para a rota protegida de origem).
+- RF-04: garantir existencia do documento `users/{uid}` no Firestore apos login/cadastro (transacao no client, validada por `firestore.rules`).
+- RF-05: no primeiro login, criar documento do usuario com dados basicos e role `standard` (nunca auto-promocao).
 - RF-06: em logins seguintes, atualizar `updatedAt` e `lastLoginAt` mantendo `createdAt`.
 - RF-07: em falha de autenticacao, exibir mensagem amigavel sem detalhes sensiveis.
-- RF-08: a sessao autenticada deve ser persistida pelo Auth.js e disponibilizada para layouts, paginas e rotas da API.
-- RF-09: no login com email/senha, quando o email existir e a senha estiver incorreta, exibir mensagem: "As informacoes estao incorretas.".
-- RF-10: no login com email/senha, quando o email nao existir na base, exibir mensagem: "Usuario nao existe.".
-- RF-11: nao permitir contas duplicadas por email entre provedores diferentes (email/senha e Google).
+- RF-08: a sessao autenticada e mantida pelo Firebase Auth (persistencia local do navegador) e exposta pelo `AuthProvider` para rotas e telas.
+- RF-09: no login com email/senha, quando as credenciais forem invalidas (email inexistente ou senha incorreta), exibir a mensagem unica "Email ou senha incorretos." (atualizado em 2026-11: o Firebase Auth com protecao contra enumeracao de emails nao distingue os casos, e a mensagem unica evita expor quais emails existem).
+- RF-10: (substituido pelo RF-09 em 2026-11).
+- RF-11: nao permitir contas duplicadas por email entre provedores diferentes (configuracao "uma conta por endereco de email" do Firebase Auth).
 - RF-12: o email deve ser unico no sistema, independentemente do provedor utilizado.
 
 ## Requisitos nao funcionais
@@ -66,19 +66,14 @@ When tentar autenticar
 Then deve exibir mensagem de erro amigavel
 And nao deve redirecionar para `/home`
 
-### Cenario 4 - Email existente com senha incorreta
+### Cenario 4 - Credenciais invalidas (email inexistente ou senha incorreta)
 
-Given que o email informado ja existe na base
-When o usuario informar senha incorreta e tentar autenticar
-Then o sistema deve exibir "As informacoes estao incorretas."
-And nao deve redirecionar para `/home`
-
-### Cenario 5 - Usuario inexistente
-
-Given que o email informado nao existe na base
+Given que o email informado nao existe na base ou a senha esta incorreta
 When o usuario tentar autenticar
-Then o sistema deve exibir "Usuario nao existe."
+Then o sistema deve exibir "Email ou senha incorretos."
 And nao deve redirecionar para `/home`
+
+### Cenario 5 - (incorporado ao Cenario 4 em 2026-11)
 
 ### Cenario 6 - Unicidade de email entre provedores
 

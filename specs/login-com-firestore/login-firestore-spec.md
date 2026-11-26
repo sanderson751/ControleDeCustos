@@ -3,6 +3,7 @@
 ## Objetivo
 
 Permitir autenticacao no sistema de controle de custos por:
+
 - email e senha
 - conta Google
 - criacao de nova conta com email e senha
@@ -53,9 +54,11 @@ Apos autenticacao bem-sucedida, o usuario deve ser redirecionado para a tela pri
 ## Estrutura Firestore
 
 Colecao:
+
 - `users/{uid}`
 
 Campos sugeridos:
+
 - `uid`: string
 - `displayName`: string
 - `email`: string
@@ -92,6 +95,7 @@ Exemplo de documento:
 ## Criterios de aceite (Gherkin)
 
 ### Cenario 1 - Login com email e senha
+
 Given que o usuario esta na tela de login
 And possui email e senha validos
 When clicar em "Entrar"
@@ -100,6 +104,7 @@ And deve ser redirecionado para a tela principal (`App.tsx`)
 And o documento `users/{uid}` deve ser criado/atualizado no Firestore
 
 ### Cenario 2 - Login com Google
+
 Given que o usuario esta na tela de login
 When clicar em "Entrar com Google"
 And concluir autenticacao no provedor
@@ -108,12 +113,14 @@ And deve ser redirecionado para a tela principal (`App.tsx`)
 And o documento `users/{uid}` deve ser criado/atualizado no Firestore
 
 ### Cenario 3 - Erro de autenticacao
+
 Given que o usuario informa credenciais invalidas
 When tentar autenticar
 Then o sistema deve exibir mensagem de erro amigavel
 And nao deve redirecionar para `App.tsx`
 
 ### Cenario 4 - Criacao de conta com email e senha
+
 Given que o usuario esta na tela de login
 And ainda nao possui cadastro
 When selecionar a opcao de criar conta
@@ -124,6 +131,7 @@ And deve ser redirecionado para a tela principal (`App.tsx`)
 And o documento `users/{uid}` deve ser criado no Firestore
 
 ### Cenario 5 - Logout
+
 Given que o usuario esta autenticado na tela principal
 When clicar em "Sair"
 Then a sessao deve ser encerrada

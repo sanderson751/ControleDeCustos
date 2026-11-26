@@ -29,6 +29,7 @@ Solicitacao:
 "O usuario precisa registrar despesas rapidamente pelo celular."
 
 Resposta esperada:
+
 - RF-01: permitir cadastro de despesa em ate 3 campos obrigatorios (valor, categoria, data).
 - RF-02: salvar rascunho automatico em caso de perda de conexao.
 - Criterio de aceite:

@@ -7,6 +7,7 @@ A appbar sera responsavel por acionar toggle do menu e concentrar a acao de logo
 A area central exibira inicialmente uma tela de boas-vindas, preparada para evoluir para dashboard mensal.
 
 Padrao visual definido:
+
 - icones via Material Design Icons Community (`@mdi/react` + `@mdi/js`)
 - tooltip via `react-tooltip` no menu retraido
 - cores e textos orientados por tokens semanticos de tema (sem cores fixas em estado critico)
@@ -73,17 +74,19 @@ Padrao visual definido:
 ## Persistencia e integracoes
 
 Persistencia obrigatoria:
+
 - `users/{uid}/settings/profile`
   - `ui.sidebarCollapsed`: boolean
   - `updatedAt`: Timestamp
 
 Integracoes existentes:
+
 - Firebase Auth para sessao e logout.
 - Firestore para perfil/preferencias de layout.
 
 ## Compatibilidade de tema e contraste
 
-- O shell deve mapear variaveis Bootstrap (`--bs-*`) para tokens do tema ativo.
+- Componentes shadcn/ui devem consumir apenas os tokens semanticos do tema definidos em `src/index.css` (sem cores fixas).
 - Componentes de appbar/menu/boas-vindas devem consumir tokens semanticos para fundo, texto, borda e estados.
 - Garantir contraste minimo AA para textos e botoes em `light` e `dark`.
 - Snackbar deve usar tokens por status (erro/sucesso/warning) garantindo legibilidade nos dois temas.

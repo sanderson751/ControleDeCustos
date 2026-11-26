@@ -34,7 +34,7 @@ A necessidade atual é:
 - RNF-02: Verificações de permissão devem ocorrer em <= 100ms.
 - RNF-03: O sistema deve manter acessibilidade básica em todos os níveis de acesso.
 - RNF-04: A interface de gestão de usuários deve ser responsiva em desktop e mobile.
-- RNF-05: O controle de acesso deve ser aplicado na UI e validado em rotas do Next.js e services server-side no mesmo ciclo de entrega.
+- RNF-05: O controle de acesso deve ser aplicado na UI (guards de rota e matriz `src/domain/rules/permissions.ts`) e garantido pelas regras do Firestore (`firestore.rules`, testadas no emulador) no mesmo ciclo de entrega.
 - RNF-06: A interface de gestão de usuários deve manter legibilidade em `light` e `dark` com contraste minimo AA.
 - RNF-07: Textos de botões, badges e alertas não devem usar cor fixa sem considerar o tema ativo.
 - RNF-08: Operacoes de edição de perfil e erros de carregamento devem usar snackbar no topo direito.
@@ -84,9 +84,10 @@ When visualizar um formulário ou listagem
 Then todos os elementos de edição, adição e remoção devem estar ocultos
 And apenas conteúdo de visualização deve ser exibido
 
-### Cenário 5 - Usuário existente é Admin
+### Cenário 5 - Promoção do primeiro Admin
 
-Given que o primeiro usuário foi criado no sistema
-When este usuário acessa o sistema
+Given que um novo usuário se cadastra (todo usuário novo nasce com role Standard)
+And o responsável pelo projeto promove esse usuário a `admin` no Console do Firebase (ou um Admin existente altera a role na tela de perfis)
+When este usuário acessa o sistema novamente
 Then sua role deve ser Admin
 And ele deve ter acesso a todas as funcionalidades

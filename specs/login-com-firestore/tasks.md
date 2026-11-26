@@ -1,5 +1,7 @@
 # Tasks - Login com Firestore
 
+> **Atualizacao (2026-11):** as tarefas marcadas abaixo foram implementadas na versao Next.js. A partir da migracao para SPA (Vite + React + Firebase client) a implementacao vigente esta descrita em [`specs/migracao-spa-vite`](../migracao-spa-vite/requirements.md); referencias a API Next, Auth.js, Bootstrap e servicos server-side sao historicas.
+
 ## Fase 1 - Setup Firebase
 
 - [x] Configurar Next.js App Router e Auth.js.

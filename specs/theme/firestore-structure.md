@@ -10,9 +10,11 @@
 ### 1) Preferencias de interface
 
 Caminho:
+
 - `users/{userId}/settings/profile`
 
 Campos:
+
 - `userId`: string
 - `ui`: map
   - `theme`: string (`light` ou `dark`)
@@ -42,7 +44,7 @@ Exemplo:
 - Escrita create: garantir documento `users/{userId}/settings/profile` quando inexistente.
 - Escrita update: persistir `ui.theme` com `merge` e atualizar `updatedAt`.
 - Escrita delete: nao aplicavel para esta feature.
-- Tratamento de falha: em erro de leitura/escrita, aplicar fallback `light` e exibir feedback ao usuario.
+- Tratamento de falha: em erro de leitura/escrita, aplicar fallback `dark` e exibir feedback ao usuario.
 
 ## Indices compostos sugeridos
 
@@ -68,7 +70,7 @@ service cloud.firestore {
 
 ## Convencoes
 
-- Fallback para `light` quando `ui.theme` estiver ausente/invalido.
+- Fallback para `dark` quando `ui.theme` estiver ausente/invalido.
 - Usar `serverTimestamp()` em `updatedAt`.
 - Atualizar `ui.theme` com `setDoc(..., { merge: true })` para nao sobrescrever outras preferencias de `ui`.
 - Firestore e a fonte final da preferencia de tema; estado local e cache de interface.

@@ -16,7 +16,8 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - Feature que cria/edita/exclui dados so pode ser considerada pronta quando a persistencia no Firebase Firestore estiver implementada e validada.
 - Nao e permitido encerrar feature com armazenamento final apenas em memoria local da interface.
 - Toda feature de dados deve manter `requirements.md`, `tasks.md` e `firestore-structure.md` coerentes entre si.
-- Toda feature deve encerrar sem erros de lint (`npm run lint`) seguindo a configuracao oficial do repositorio.
+- Toda feature deve encerrar com `npm run verify` (typecheck + lint + testes) sem erros e, quando alterar dados/regras, com `npm run test:rules` verde.
+- Toda alteracao chega na `main` somente via Pull Request.
 
 ## Estrutura de arquivos
 
@@ -29,3 +30,5 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - `specs/controle-de-custos-inicial/tasks.md`: plano de execução.
 - `specs/controle-de-custos-inicial/firestore-structure.md`: estrutura de colecoes, indices e regras.
 - `specs/_template/firestore-structure.md`: template de estrutura para novas features.
+- `specs/migracao-spa-vite/`: migracao para SPA (Vite + React + Firebase client) e nova UI shadcn/ui.
+- `CLAUDE.md` e `.claude/`: mapeamento dos agentes e skills do SDD para o Claude Code.

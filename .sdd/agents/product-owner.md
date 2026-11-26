@@ -26,11 +26,13 @@ Priorizar escopo maximizando valor de negocio e reduzindo risco de entrega.
 ## Exemplo (Controle de Custos)
 
 Priorizacao para MVP:
+
 1. Cadastro de custos.
 2. Lista e filtro mensal.
 3. Orcamento por categoria.
 4. Alertas de estouro.
 
 Itens adiados:
+
 - Exportacao em PDF.
 - Integracao bancaria.

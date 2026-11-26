@@ -2,8 +2,9 @@
 
 ## Visão de solução
 
-A feature introduz um sistema de controle de acesso baseado em roles que permeia toda a aplicação. 
+A feature introduz um sistema de controle de acesso baseado em roles que permeia toda a aplicação.
 A estratégia implementa:
+
 - Tipo `UserRole` com três valores imutáveis: `admin`, `standard`, `guest`
 - Hook `useUserRole(userId)` para carregar e manter a role autenticada em cache
 - Política de visibilidade de menu condicional à role
@@ -12,6 +13,7 @@ A estratégia implementa:
 - Formulário `UserProfileEditForm` centralizado para edição de roles
 
 Padrão visual transversal:
+
 - Manter consistência com Material Design Icons Community
 - Seguir padrão de skeleton loading durante carregamento de roles
 - Aplicar disable/hide baseado em permissões em todos os componentes impactados
@@ -56,6 +58,7 @@ PermissionContext
 ## Componentes propostos
 
 ### 1) UserProfileListPage
+
 - Exibe tabela com todos os usuários
 - Colunas: Email, Nome, Role, Ações (Editar)
 - Skeleton durante carregamento
@@ -63,16 +66,19 @@ PermissionContext
 - Dispara snackbar para feedback de sucesso/erro/warning
 
 ### 2) UserProfileEditForm
+
 - Modal/Card centralizado na tela
 - Campos: displayName (text), email (disabled para visualização), role (radio/select com 3 opções)
 - Botões: Salvar, Cancelar
 - Validações básicas (displayName não vazio)
 
 ### 3) SidebarMenu atualizado
+
 - Condição de visibilidade: `canManageRoles()` para "Perfil de Usuários"
 - Ocultar menu items não acessíveis à role atual
 
 ### 4) Todos os componentes com controle de acesso
+
 - Exemplo: CostEntryForm, CostEntryTable
 - Mostrar/ocultar botões de edição, adição, remoção baseado em `canEdit`, `canAdd`, `canDelete`
 
@@ -85,7 +91,7 @@ PermissionContext
 
 ## Services propostos
 
-- `rolePermissionService`: 
+- `rolePermissionService`:
   - `getUserRole(userId)`: Promise<UserRole>
   - `setUserRole(userId, role)`: Promise<void>
   - `isPermitted(role, resource, action)`: boolean
@@ -115,7 +121,7 @@ PermissionContext
 ## Compatibilidade de tema e contraste
 
 - `UserProfileListPage` e `UserProfileEditForm` devem respeitar tokens globais de tema (`light`/`dark`).
-- Variaveis Bootstrap usadas pelos componentes devem ser mapeadas para tokens semanticos da aplicação.
+- Componentes shadcn/ui devem consumir apenas os tokens semanticos do tema definidos em `src/index.css` (sem cores fixas).
 - Garantir contraste minimo AA para textos de tabela, badges de role, botões de ação e alertas.
 - Snackbar deve aparecer no canto superior direito, durar 3 segundos e permitir fechar por `X`.
 - Snackbar deve usar cor semantica por status: vermelho, verde e amarelo.

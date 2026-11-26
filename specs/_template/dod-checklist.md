@@ -11,7 +11,8 @@ Use este checklist em toda nova spec da pasta `specs/`.
 ## Qualidade tecnica
 
 - [ ] Sem erros de tipagem.
-- [ ] Lint do projeto executado sem erros (`npm run lint`).
+- [ ] `npm run verify` executado sem erros (typecheck + lint + testes).
+- [ ] Regras do Firestore alteradas possuem teste no emulador (`npm run test:rules`).
 - [ ] Testes automatizados passando.
 - [ ] Novos bugs corrigidos possuem teste de regressao.
 - [ ] Hooks validados com `react-hooks/rules-of-hooks` e `react-hooks/exhaustive-deps` sem supressoes indevidas.

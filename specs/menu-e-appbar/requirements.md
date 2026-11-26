@@ -4,6 +4,7 @@
 
 O sistema precisa de uma estrutura de navegacao global consistente para suportar crescimento de funcionalidades.
 A necessidade atual e introduzir:
+
 - menu lateral esquerdo retratil/expansivel
 - appbar global fixa no topo
 - acao de logout na appbar
@@ -46,42 +47,49 @@ A necessidade atual e introduzir:
 ## Criterios de aceite (Gherkin)
 
 ### Cenario 1 - Expandir e retrair menu
+
 Given que o usuario autenticado esta na tela principal
 When clicar no botao de menu da appbar
 Then o menu lateral deve alternar entre retraido e expandido
 And o conteudo principal deve se ajustar sem quebrar o layout
 
 ### Cenario 2 - Logout pela appbar
+
 Given que o usuario autenticado esta na tela principal
 When clicar no botao de logout no canto direito da appbar
 Then o sistema deve encerrar a sessao
 And deve redirecionar para a tela de login
 
 ### Cenario 3 - Boas-vindas no centro
+
 Given que o usuario autenticado acessou a tela principal
 When o layout carregar
 Then deve exibir uma mensagem de boas-vindas centralizada
 And deve exibir texto indicando o futuro dashboard de custos do mes corrente
 
 ### Cenario 4 - Responsividade
+
 Given que o usuario acessa a aplicacao em dispositivo mobile
 When interagir com menu e appbar
 Then os controles devem permanecer visiveis e utilizaveis
 And nao deve haver quebra de layout horizontal
 
 ### Cenario 5 - Menu retraido com tooltip
+
 Given que o menu lateral esta retraido
 When o usuario posicionar o cursor sobre um item do menu
 Then o sistema deve exibir tooltip com o descritivo do item usando `react-tooltip`
 And deve exibir somente o icone do item na area do menu
 
 ### Cenario 6 - Filtragem de menu por role
+
 Given que um usuario com role Standard esta na tela principal
 When o menu lateral ser renderizado
 Then o item "Perfil de Usuários" não deve ser visível no menu
 And todos os outros itens de menu padrão devem estar acessíveis
 
 ### Cenario 7 - Admin visualiza menu completo
+
 Given que um usuario com role Admin esta na tela principal
 When o menu lateral ser renderizado
 Then todos os itens de menu incluindo "Perfil de Usuários" devem estar visíveis
