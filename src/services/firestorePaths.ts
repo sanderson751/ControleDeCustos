@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase";
  * users/{uid}/settings/profile
  * users/{uid}/costEntries/{entryId}
  * users/{uid}/budgetLimits/{AAAA-MM-categoria}
+ * users/{uid}/recurringBudgets/{AAAA-MM-categoria}
  */
 export const USERS_COLLECTION = "users";
 export const SETTINGS_COLLECTION = "settings";
@@ -34,3 +35,11 @@ export const budgetLimitsCollectionRef = (uid: string) =>
 
 export const budgetLimitDocRef = (uid: string, budgetId: string) =>
   doc(db, USERS_COLLECTION, uid, BUDGET_LIMITS_COLLECTION, budgetId);
+
+export const RECURRING_BUDGETS_COLLECTION = "recurringBudgets";
+
+export const recurringBudgetsCollectionRef = (uid: string) =>
+  collection(db, USERS_COLLECTION, uid, RECURRING_BUDGETS_COLLECTION);
+
+export const recurringBudgetDocRef = (uid: string, budgetId: string) =>
+  doc(db, USERS_COLLECTION, uid, RECURRING_BUDGETS_COLLECTION, budgetId);

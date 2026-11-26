@@ -39,7 +39,7 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
 - Dashboard por competência (navegação entre meses) com totais fixos/variáveis, consolidado por categoria e alertas de orçamento.
 - Cadastro rápido com categoria, listagem com filtros (frente e categoria) e paginação, edição e exclusão (com confirmação) de custos.
 - Parcelamento de custos fixos (um lançamento por competência).
-- Orçamento mensal por categoria com consumo, status e cópia do mês anterior.
+- Orçamento por categoria só no mês ou recorrente ("este mês em diante", com histórico de vigências), com consumo, status e cópia do mês anterior.
 - Alertas ao atingir 80% e ao estourar 100% do orçamento (no Início e ao cadastrar um custo).
 - Relatórios por período, frente e categoria, com exportação CSV e PDF.
 - Gestão de perfis de usuários (admin).
@@ -54,7 +54,7 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
   - plano de execução em `specs/<feature>/tasks.md`
   - estrutura de dados e regras em `specs/<feature>/firestore-structure.md`
 - Steering técnico centralizado em `.sdd/steering`.
-- Agentes por papel em `.sdd/agents`, mapeados para agentes e skills do Claude Code em `.claude/` (ver [`CLAUDE.md`](CLAUDE.md)).
+- Agentes por papel em `.sdd/agents`, mapeados para agentes e skills de automação em `.claude/` (ver [`CLAUDE.md`](CLAUDE.md)).
 - Gate obrigatório de persistência e segurança: toda escrita no Firestore tem regra e teste no emulador.
 - Gate obrigatório de qualidade: `npm run verify` (typecheck + lint + testes) antes de todo PR.
 - Branch `main` protegida: alterações entram somente via Pull Request.
@@ -102,7 +102,7 @@ alterando `role` para `"admin"` no documento `users/{uid}` pelo Console do Fireb
 - `src/components`: shadcn/ui (`ui/`), layout, componentes compartilhados e de domínio.
 - `tests/rules`: testes das regras de segurança.
 - `specs`: especificações funcionais por feature.
-- `.sdd`: steering e contextos de agentes; `.claude`: agentes e skills do Claude Code.
+- `.sdd`: steering e contextos de agentes; `.claude`: agentes e skills de automação do fluxo SDD.
 
 ## Proposta de valor para recrutadores e tech leads
 

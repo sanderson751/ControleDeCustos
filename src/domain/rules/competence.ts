@@ -99,3 +99,8 @@ export function isFirstCompetence(competence: Competence): boolean {
 export function isLastCompetence(competence: Competence): boolean {
   return isSameCompetence(competence, MAX_COMPETENCE);
 }
+
+/** { 2026, 3 } => "mar/2026" */
+export function formatCompetenceShort({ year, month }: Competence): string {
+  return `${MONTH_NAMES[month - 1].slice(0, 3)}/${year}`;
+}

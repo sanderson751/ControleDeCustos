@@ -2,16 +2,19 @@ import type { Competence, CostEntry } from "@/domain/entities/cost";
 import { useCompetenceResource } from "@/hooks/useCompetenceResource";
 import { listMonthCosts } from "@/services/costService";
 
+const NO_ENTRIES: CostEntry[] = [];
+
 const fetchMonthCosts = (userId: string, { year, month }: Competence) =>
   listMonthCosts(userId, year, month);
 
 /** Custos de uma competencia; `reload` para atualizar apos escritas. */
 export function useMonthCosts(userId: string, competence: Competence) {
-  const { data, ...rest } = useCompetenceResource<CostEntry>(
+  const { data, ...rest } = useCompetenceResource<CostEntry[]>(
     userId,
     competence,
     fetchMonthCosts,
     "Não foi possível carregar os custos do mês.",
+    NO_ENTRIES,
   );
 
   return { entries: data, ...rest };

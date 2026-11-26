@@ -18,13 +18,14 @@ function deferred(): Deferred {
   return { promise, resolve, reject };
 }
 
+const NONE: string[] = [];
 const OCT: Competence = { year: 2026, month: 10 };
 const SEP: Competence = { year: 2026, month: 9 };
 
 function setup(fetcher: (uid: string, c: Competence) => Promise<string[]>) {
   return renderHook(
     ({ competence }) =>
-      useCompetenceResource("uid-1", competence, fetcher, "Falhou."),
+      useCompetenceResource("uid-1", competence, fetcher, "Falhou.", NONE),
     { initialProps: { competence: OCT } },
   );
 }

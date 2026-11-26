@@ -34,18 +34,21 @@ const PERMISSION_MATRIX: Record<
   admin: {
     costEntries: CRUD,
     budgetLimits: CRUD,
+    recurringBudgets: CRUD,
     userProfiles: { ...CRUD, manage_roles: true },
     settings: { ...READ_ONLY, edit: true },
   },
   standard: {
     costEntries: CRUD,
     budgetLimits: CRUD,
+    recurringBudgets: CRUD,
     userProfiles: NONE,
     settings: { ...READ_ONLY, edit: true },
   },
   guest: {
     costEntries: READ_ONLY,
     budgetLimits: READ_ONLY,
+    recurringBudgets: READ_ONLY,
     userProfiles: NONE,
     settings: READ_ONLY,
   },

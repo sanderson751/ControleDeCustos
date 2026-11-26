@@ -1,6 +1,7 @@
 import {
   defaultDateForCompetence,
   formatCompetenceLong,
+  formatCompetenceShort,
   getCurrentCompetence,
   isFirstCompetence,
   isLastCompetence,
@@ -44,6 +45,10 @@ describe("competence", () => {
       year: 2025,
       month: 3,
     });
+  });
+
+  it("formata de forma curta", () => {
+    expect(formatCompetenceShort({ year: 2026, month: 3 })).toBe("mar/2026");
   });
 
   it("compara e formata por extenso", () => {

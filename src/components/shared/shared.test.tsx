@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { StatTile } from "@/components/shared/StatTile";
+import { describeDraftOrigin } from "@/components/budgets/budgetPresentation";
 import { CompetencePicker } from "@/components/shared/CompetencePicker";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -96,5 +97,53 @@ describe("CompetencePicker", () => {
     renderPicker({ year: 2000, month: 1 });
     expect(screen.getByRole("button", { name: "Mês anterior" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Próximo mês" })).toBeEnabled();
+  });
+});
+
+describe("describeDraftOrigin", () => {
+  const competence = { year: 2026, month: 6 };
+  const active = {
+    id: "2026-01-lazer",
+    category: "lazer" as const,
+    year: 2026,
+    month: 1,
+    limit: 300,
+  };
+  const future = [{ ...active, id: "2026-09-lazer", month: 9, limit: 500 }];
+
+  it("modo 'so este mes'", () => {
+    expect(
+      describeDraftOrigin({ mode: "mensal", value: 400, active: null, future: [], competence }),
+    ).toBe("Somente neste mês");
+    expect(
+      describeDraftOrigin({ mode: "mensal", value: 400, active, future: [], competence }),
+    ).toBe("Somente neste mês (recorrente: R$ 300,00)");
+    expect(
+      describeDraftOrigin({ mode: "mensal", value: null, active, future: [], competence }),
+    ).toBe("Recorrente (R$ 300,00): não é possível remover só neste mês");
+    expect(
+      describeDraftOrigin({ mode: "mensal", value: null, active: null, future: [], competence }),
+    ).toBe("");
+  });
+
+  it("modo 'este mes em diante' descreve o efeito da gravacao", () => {
+    expect(
+      describeDraftOrigin({ mode: "recorrente", value: 300, active, future: [], competence }),
+    ).toBe("Recorrente desde jan/2026");
+    expect(
+      describeDraftOrigin({ mode: "recorrente", value: 350, active, future: [], competence }),
+    ).toBe("Recorrente a partir de jun/2026");
+    expect(
+      describeDraftOrigin({ mode: "recorrente", value: 300, active, future, competence }),
+    ).toBe("Recorrente a partir de jun/2026 · substitui as alterações a partir de set/2026");
+    expect(
+      describeDraftOrigin({ mode: "recorrente", value: null, active, future: [], competence }),
+    ).toBe("Recorrência encerrada a partir de jun/2026");
+    expect(
+      describeDraftOrigin({ mode: "recorrente", value: null, active: null, future, competence }),
+    ).toBe("Remove as alterações a partir de set/2026");
+    expect(
+      describeDraftOrigin({ mode: "recorrente", value: null, active: null, future: [], competence }),
+    ).toBe("");
   });
 });

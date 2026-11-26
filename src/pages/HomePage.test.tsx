@@ -1,14 +1,19 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import HomePage from "@/pages/HomePage";
 import { useSession } from "@/providers/AuthProvider";
-import { listMonthBudgets } from "@/services/budgetService";
+import {
+  listMonthBudgets,
+  listRecurringBudgets,
+} from "@/services/budgetService";
 import { listMonthCosts } from "@/services/costService";
 import { makeBudget, makeCostEntry, makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
 vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
 vi.mock("@/services/costService", () => ({ listMonthCosts: vi.fn() }));
-vi.mock("@/services/budgetService", () => ({ listMonthBudgets: vi.fn() }));
+vi.mock("@/services/budgetService", async () =>
+  (await import("@/test/budgetServiceMock")).createBudgetServiceMock(),
+);
 
 const mockedUseSession = vi.mocked(useSession);
 const mockedList = vi.mocked(listMonthCosts);
@@ -91,6 +96,25 @@ describe("HomePage", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("81% do orçamento de R$ 1.200,00")).toBeInTheDocument();
+  });
+
+  it("considera o orcamento recorrente nos alertas (cenario 5 da recorrencia)", async () => {
+    asUser();
+    mockedList.mockResolvedValue([
+      makeCostEntry({ category: "lazer", amount: 850 }),
+    ]);
+    mockedBudgets.mockResolvedValue([]);
+    vi.mocked(listRecurringBudgets).mockResolvedValueOnce([
+      { id: "2026-01-lazer", category: "lazer", year: 2026, month: 1, limit: 1000 },
+    ]);
+
+    renderWithRouter(<HomePage />, { route: "/home?mes=2026-04" });
+
+    expect(
+      await screen.findByText(
+        "Lazer atingiu 85% do orçamento: R$ 850,00 de R$ 1.000,00.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("nao exibe alertas sem categorias acima de 80%", async () => {

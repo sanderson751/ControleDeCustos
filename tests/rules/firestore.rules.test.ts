@@ -369,3 +369,98 @@ describe("lancamento legado sem categoria", () => {
     await assertSucceeds(deleteDoc(ref()));
   });
 });
+
+describe("users/{uid}/recurringBudgets", () => {
+  const base = {
+    userId: "ana",
+    year: 2026,
+    month: 3,
+    category: "alimentacao",
+    limit: 1200,
+  };
+  const path = "users/ana/recurringBudgets/2026-03-alimentacao";
+
+  it("standard cria vigencia, altera o limite e encerra com limite nulo", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), path), base));
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), path), { limit: 1500, updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/recurringBudgets/2026-09-alimentacao"), {
+        ...base,
+        month: 9,
+        limit: null,
+      }),
+    );
+    await assertSucceeds(getDoc(doc(as("ana"), path)));
+  });
+
+  it("bloqueia vigencias invalidas ou com id divergente", async () => {
+    for (const data of [
+      { ...base, limit: 0 },
+      { ...base, limit: "1200" },
+      { ...base, category: "viagem" },
+      { ...base, month: 4 },
+      { ...base, userId: "gui" },
+      (({ limit: _ignored, ...withoutLimit }) => withoutLimit)(base),
+    ]) {
+      await assertFails(setDoc(doc(as("ana"), path), data));
+    }
+  });
+
+  it("nao permite mudar o inicio/categoria de uma vigencia existente", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), path), base);
+    });
+
+    await assertFails(updateDoc(doc(as("ana"), path), { month: 5 }));
+    await assertFails(updateDoc(doc(as("ana"), path), { category: "lazer" }));
+  });
+
+  it("guest e outros usuarios nao gravam nem leem vigencias alheias", async () => {
+    await assertFails(
+      setDoc(doc(as("gui"), "users/gui/recurringBudgets/2026-03-lazer"), {
+        ...base,
+        userId: "gui",
+        category: "lazer",
+      }),
+    );
+    await assertFails(setDoc(doc(as("admin"), path), base));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), path), base);
+    });
+    await assertFails(getDoc(doc(as("admin"), path)));
+    await assertSucceeds(getDoc(doc(as("ana"), path)));
+  });
+});
+
+describe("recurringBudgets: encerramento por update e escrita de guest", () => {
+  const anaPath = "users/ana/recurringBudgets/2026-03-alimentacao";
+  const guiPath = "users/gui/recurringBudgets/2026-03-lazer";
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, anaPath), {
+        userId: "ana", year: 2026, month: 3, category: "alimentacao", limit: 1200,
+      });
+      await setDoc(doc(db, guiPath), {
+        userId: "gui", year: 2026, month: 3, category: "lazer", limit: 300,
+      });
+    });
+  });
+
+  it("dono encerra a vigencia do proprio mes com update para limite nulo", async () => {
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), anaPath), { limit: null, updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(deleteDoc(doc(as("ana"), anaPath)));
+  });
+
+  it("guest nao altera nem exclui as proprias vigencias", async () => {
+    await assertFails(updateDoc(doc(as("gui"), guiPath), { limit: 500 }));
+    await assertFails(deleteDoc(doc(as("gui"), guiPath)));
+    await assertSucceeds(getDoc(doc(as("gui"), guiPath)));
+  });
+});

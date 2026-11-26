@@ -8,7 +8,10 @@ import {
 import { notify } from "@/lib/notify";
 import CostsPage from "@/pages/CostsPage";
 import { useSession } from "@/providers/AuthProvider";
-import { listMonthBudgets } from "@/services/budgetService";
+import {
+  listMonthBudgets,
+  listRecurringBudgets,
+} from "@/services/budgetService";
 import {
   createCostEntry,
   deleteCostEntry,
@@ -24,7 +27,9 @@ vi.mock("@/services/costService", () => ({
   createCostEntry: vi.fn(),
   deleteCostEntry: vi.fn(),
 }));
-vi.mock("@/services/budgetService", () => ({ listMonthBudgets: vi.fn() }));
+vi.mock("@/services/budgetService", async () =>
+  (await import("@/test/budgetServiceMock")).createBudgetServiceMock(),
+);
 
 const mockedUseSession = vi.mocked(useSession);
 const mockedList = vi.mocked(listMonthCosts);
@@ -237,6 +242,31 @@ describe("CostsPage", () => {
     expect(
       mockedNotify.mock.calls.filter(([status]) => status === "warning"),
     ).toHaveLength(1);
+  });
+
+  it("considera orcamento recorrente no alerta pos-cadastro", async () => {
+    mockedBudgets.mockResolvedValue([]);
+    vi.mocked(listRecurringBudgets).mockResolvedValueOnce([
+      { id: "2026-01-lazer", category: "lazer", year: 2026, month: 1, limit: 100 },
+    ]);
+    mockedList
+      .mockResolvedValueOnce([makeCostEntry({ accountName: "Cinema", category: "lazer", amount: 50 })])
+      .mockResolvedValueOnce([
+        makeCostEntry({ accountName: "Cinema", category: "lazer", amount: 50 }),
+        makeCostEntry({ category: "lazer", amount: 40 }),
+      ]);
+    const { user } = setup("standard", "/costs?mes=2026-04");
+    await screen.findByText("Cinema");
+
+    await fillRequired(user, { amount: "4000", category: "lazer" });
+    await user.click(screen.getByRole("button", { name: "Adicionar custo" }));
+
+    await waitFor(() =>
+      expect(mockedNotify).toHaveBeenCalledWith(
+        "warning",
+        "Lazer atingiu 90% do orçamento: R$ 90,00 de R$ 100,00.",
+      ),
+    );
   });
 
   it("aplica filtros por frente e por categoria", async () => {

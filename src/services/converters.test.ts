@@ -1,4 +1,9 @@
-import { toCostEntry, toDate, toUserProfile } from "@/services/converters";
+import {
+  toCostEntry,
+  toDate,
+  toRecurringBudget,
+  toUserProfile,
+} from "@/services/converters";
 
 describe("converters", () => {
   it("toDate aceita Timestamp, Date e usa fallback para pendentes", () => {
@@ -29,5 +34,15 @@ describe("converters", () => {
       email: "",
       photoURL: "",
     });
+  });
+});
+
+describe("toRecurringBudget", () => {
+  it("aceita limite positivo e trata ausente/invalido como encerramento", () => {
+    expect(
+      toRecurringBudget("2026-01-lazer", { category: "lazer", year: 2026, month: 1, limit: 300 }),
+    ).toEqual({ id: "2026-01-lazer", category: "lazer", year: 2026, month: 1, limit: 300 });
+    expect(toRecurringBudget("x", { category: "lazer", year: 2026, month: 1, limit: null }).limit).toBeNull();
+    expect(toRecurringBudget("x", { category: "lazer", year: 2026, month: 1, limit: -5 }).limit).toBeNull();
   });
 });

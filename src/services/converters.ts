@@ -1,5 +1,5 @@
 import type { DocumentData } from "firebase/firestore";
-import type { BudgetLimit } from "@/domain/entities/budget";
+import type { BudgetLimit, RecurringBudget } from "@/domain/entities/budget";
 import type { CostEntry } from "@/domain/entities/cost";
 import type { UserProfile } from "@/domain/entities/user";
 import { normalizeCategory } from "@/domain/rules/costRules";
@@ -65,5 +65,19 @@ export function toUserProfile(id: string, data: DocumentData): UserProfile {
     role: normalizeRole(data.role),
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
+  };
+}
+
+export function toRecurringBudget(
+  id: string,
+  data: DocumentData,
+): RecurringBudget {
+  return {
+    id,
+    category: normalizeCategory(data.category),
+    year: Number(data.year),
+    month: Number(data.month),
+    limit:
+      typeof data.limit === "number" && data.limit > 0 ? data.limit : null,
   };
 }
