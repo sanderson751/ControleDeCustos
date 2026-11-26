@@ -21,16 +21,23 @@ import {
 import { makeCostEntry } from "@/test/factories";
 
 describe("categorias", () => {
-  it("reconhece apenas categorias padrao", () => {
+  it("aceita qualquer id de categoria nao vazio (padrao ou personalizada)", () => {
     expect(isCostCategory("alimentacao")).toBe(true);
-    expect(isCostCategory("Alimentação")).toBe(false);
+    expect(isCostCategory("aB3xYz9")).toBe(true);
+    expect(isCostCategory("")).toBe(false);
+    expect(isCostCategory(42)).toBe(false);
     expect(isCostCategory(undefined)).toBe(false);
   });
 
-  it("normaliza categoria ausente ou invalida para outros (legado)", () => {
+  it("normaliza somente categoria ausente para outros (legado)", () => {
     expect(normalizeCategory("lazer")).toBe("lazer");
     expect(normalizeCategory(undefined)).toBe("outros");
-    expect(normalizeCategory("viagem")).toBe("outros");
+    expect(normalizeCategory("")).toBe("outros");
+    // Personalizada (id do Firestore) e preservada; o rotulo vem do catalogo.
+    expect(normalizeCategory("viagem")).toBe("viagem");
+    // Regressao: texto livre legado (acento/espaco) seria negado pelas regras.
+    expect(normalizeCategory("Alimentação")).toBe("outros");
+    expect(normalizeCategory("com espaco")).toBe("outros");
   });
 });
 

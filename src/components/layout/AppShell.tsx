@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useUiPreferencesSync } from "@/hooks/useUiPreferencesSync";
 import { useSession } from "@/providers/AuthProvider";
+import { CategoriesProvider } from "@/providers/CategoriesProvider";
 
 /** Shell autenticado: menu lateral + app bar + conteudo da rota. */
 export function AppShell() {
@@ -25,7 +26,9 @@ export function AppShell() {
           onToggleTheme={toggleTheme}
         />
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 md:px-8 md:py-12">
-          <Outlet />
+          <CategoriesProvider userId={profile.userId}>
+            <Outlet />
+          </CategoriesProvider>
         </main>
       </SidebarInset>
     </SidebarProvider>

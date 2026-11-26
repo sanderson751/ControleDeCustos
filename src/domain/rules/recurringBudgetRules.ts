@@ -5,15 +5,12 @@ import type {
   MonthBudgetState,
   RecurringBudget,
 } from "@/domain/entities/budget";
-import {
-  COST_CATEGORIES,
-  type Competence,
-  type CostCategory,
-} from "@/domain/entities/cost";
+import type { Competence, CostCategory } from "@/domain/entities/cost";
 import {
   type BudgetChangePlan,
   buildBudgetDocId,
 } from "@/domain/rules/budgetRules";
+import { compareCategoryOrder } from "@/domain/rules/costRules";
 
 function competenceIndex({ year, month }: Competence): number {
   return year * 12 + (month - 1);
@@ -58,7 +55,15 @@ export function resolveEffectiveBudgets(
     monthLimits.map((item) => [item.category, item]),
   );
 
-  return COST_CATEGORIES.flatMap<EffectiveBudget>((category) => {
+  // Categorias presentes nos dados (excecoes do mes + vigencias), em ordem de exibicao.
+  const categories = [
+    ...new Set<CostCategory>([
+      ...monthlyByCategory.keys(),
+      ...recurring.map((item) => item.category),
+    ]),
+  ].sort(compareCategoryOrder);
+
+  return categories.flatMap<EffectiveBudget>((category) => {
     const active = resolveRecurringFor(recurring, category, competence);
     const recurringInfo = active
       ? {
@@ -184,7 +189,7 @@ export function planMonthBudgetChanges(
   );
   const target = competenceIndex(competence);
 
-  for (const category of COST_CATEGORIES) {
+  for (const category of Object.keys(desired).sort(compareCategoryOrder)) {
     const wanted = desired[category];
 
     if (!wanted) {

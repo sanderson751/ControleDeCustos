@@ -20,10 +20,12 @@ import { useMonthCosts } from "@/hooks/useMonthCosts";
 import { formatCompetence } from "@/lib/dates";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
+import { useCategories } from "@/providers/CategoriesProvider";
 import { ROUTES, withCompetence } from "@/routes/navigation";
 
 export default function HomePage() {
   const { profile } = useSession();
+  const { catalog } = useCategories();
   const { competence, isCurrent, setCompetence } = useCompetenceParam();
   const { entries, isLoading, error } = useMonthCosts(
     profile.userId,
@@ -47,8 +49,8 @@ export default function HomePage() {
   const totals = useMemo(() => calculateTotals(entries), [entries]);
   const categoryTotals = useMemo(() => sumByCategory(entries), [entries]);
   const budgetSummaries = useMemo(
-    () => summarizeBudgets(entries, limits),
-    [entries, limits],
+    () => summarizeBudgets(entries, limits, catalog.ids),
+    [catalog.ids, entries, limits],
   );
   const alerts = useMemo(
     () => (isLoading || isLoadingBudgets ? [] : getBudgetAlerts(budgetSummaries)),

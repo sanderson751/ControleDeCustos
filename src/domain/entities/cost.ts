@@ -3,7 +3,7 @@ export type CostType = "fixo" | "variavel";
 export type CostFilter = "todos" | CostType;
 
 /** Categorias padrao (steering de produto). Valores persistidos sem acento. */
-export const COST_CATEGORIES = [
+export const DEFAULT_CATEGORIES = [
   "moradia",
   "alimentacao",
   "transporte",
@@ -13,11 +13,17 @@ export const COST_CATEGORIES = [
   "outros",
 ] as const;
 
-export type CostCategory = (typeof COST_CATEGORIES)[number];
+export type DefaultCategory = (typeof DEFAULT_CATEGORIES)[number];
+
+/**
+ * Id de categoria: um id padrao (acima) ou o id de uma categoria
+ * personalizada do usuario (users/{uid}/categories/{id}).
+ */
+export type CostCategory = string;
 
 export type CategoryFilter = "todas" | CostCategory;
 
-export const COST_CATEGORY_LABELS: Record<CostCategory, string> = {
+export const DEFAULT_CATEGORY_LABELS: Record<DefaultCategory, string> = {
   moradia: "Moradia",
   alimentacao: "Alimentação",
   transporte: "Transporte",
@@ -28,7 +34,7 @@ export const COST_CATEGORY_LABELS: Record<CostCategory, string> = {
 };
 
 /** Categoria usada para lancamentos legados (sem categoria). */
-export const FALLBACK_CATEGORY: CostCategory = "outros";
+export const FALLBACK_CATEGORY: DefaultCategory = "outros";
 
 export type Competence = {
   year: number;

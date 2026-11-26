@@ -4,11 +4,14 @@ import type {
   CategoryBudgetSummary,
 } from "@/domain/entities/budget";
 import {
-  COST_CATEGORIES,
   type CostCategory,
   type CostEntry,
+  DEFAULT_CATEGORIES,
 } from "@/domain/entities/cost";
-import { spentByCategory } from "@/domain/rules/costRules";
+import {
+  compareCategoryOrder,
+  spentByCategory,
+} from "@/domain/rules/costRules";
 
 /** A partir de 80% do limite a categoria entra em atencao. */
 export const BUDGET_WARNING_RATIO = 0.8;
@@ -60,21 +63,27 @@ export function getConsumedPercent(spent: number, limit: number): number {
 }
 
 /**
- * Resumo de orcamento por categoria (sempre as 7 categorias), ordenado por
+ * Resumo de orcamento por categoria: as categorias informadas (padrao por
+ * omissao) mais as que aparecem nos lancamentos ou limites. Ordenado por
  * gravidade (estourado > atencao > ok > sem orcamento) e depois pelo gasto.
  */
 export function summarizeBudgets(
   entries: readonly CostEntry[],
   limits: readonly BudgetLimit[],
+  categoryIds: readonly CostCategory[] = DEFAULT_CATEGORIES,
 ): CategoryBudgetSummary[] {
-  const spent = spentByCategory(entries);
+  const spent = spentByCategory(entries, categoryIds);
   const limitByCategory = new Map(
     limits.map((budget) => [budget.category, budget.limit]),
   );
+  const categories = new Set<CostCategory>([
+    ...Object.keys(spent),
+    ...limitByCategory.keys(),
+  ]);
 
-  return COST_CATEGORIES.map((category) => {
+  return [...categories].map((category) => {
     const limit = limitByCategory.get(category) ?? null;
-    const categorySpent = spent[category];
+    const categorySpent = spent[category] ?? 0;
 
     return {
       category,
@@ -90,8 +99,7 @@ export function summarizeBudgets(
     (left, right) =>
       STATUS_SEVERITY[right.status] - STATUS_SEVERITY[left.status] ||
       right.spent - left.spent ||
-      COST_CATEGORIES.indexOf(left.category) -
-        COST_CATEGORIES.indexOf(right.category),
+      compareCategoryOrder(left.category, right.category),
   );
 }
 
@@ -163,8 +171,14 @@ export function planBudgetChanges(
     current.map((budget) => [budget.category, budget.limit]),
   );
   const plan: BudgetChangePlan = { creates: [], updates: [], removals: [] };
+  const categories = [
+    ...new Set<CostCategory>([
+      ...currentByCategory.keys(),
+      ...Object.keys(desired),
+    ]),
+  ].sort(compareCategoryOrder);
 
-  for (const category of COST_CATEGORIES) {
+  for (const category of categories) {
     const existing = currentByCategory.get(category);
     const next = desired[category] ?? null;
 

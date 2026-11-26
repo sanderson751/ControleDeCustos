@@ -55,6 +55,10 @@ export function createFirestoreMock() {
     getDoc: vi.fn(),
     getDocs: vi.fn(),
     setDoc: vi.fn(async () => undefined),
+    addDoc: vi.fn(async (ref: Ref) => {
+      autoId += 1;
+      return { id: `auto-${autoId}`, path: `${ref.path}/auto-${autoId}` };
+    }),
     updateDoc: vi.fn(async () => undefined),
     deleteDoc: vi.fn(async () => undefined),
     onSnapshot: vi.fn(),

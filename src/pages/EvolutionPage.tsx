@@ -20,8 +20,6 @@ import {
 } from "@/components/ui/native-select";
 import {
   type CategoryFilter,
-  COST_CATEGORIES,
-  COST_CATEGORY_LABELS,
   type CostFilter,
 } from "@/domain/entities/cost";
 import {
@@ -39,6 +37,7 @@ import { useEvolutionData } from "@/hooks/useEvolutionData";
 import { formatCurrencyBRL } from "@/lib/currency";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
+import { useCategories } from "@/providers/CategoriesProvider";
 
 const PERIOD_OPTIONS = EVOLUTION_PERIODS.map((months) => ({
   value: String(months) as `${EvolutionPeriod}`,
@@ -59,6 +58,7 @@ const PERCENT = new Intl.NumberFormat("pt-BR", {
 
 export default function EvolutionPage() {
   const { profile } = useSession();
+  const { catalog } = useCategories();
   const { competence, isCurrent, setCompetence } = useCompetenceParam();
   const [period, setPeriod] = useState<EvolutionPeriod>(6);
   const [category, setCategory] = useState<CategoryFilter>("todas");
@@ -96,7 +96,7 @@ export default function EvolutionPage() {
   const ready = hasData && !error;
   const show = (value: string) => (ready ? value : "—");
   const subject =
-    category === "todas" ? "todas as categorias" : COST_CATEGORY_LABELS[category];
+    category === "todas" ? "todas as categorias" : catalog.labelOf(category);
 
   return (
     <section className="space-y-10" data-testid="evolution-page-screen">
@@ -144,9 +144,9 @@ export default function EvolutionPage() {
             }
           >
             <NativeSelectOption value="todas">Todas</NativeSelectOption>
-            {COST_CATEGORIES.map((option) => (
-              <NativeSelectOption key={option} value={option}>
-                {COST_CATEGORY_LABELS[option]}
+            {catalog.options.map((option) => (
+              <NativeSelectOption key={option.id} value={option.id}>
+                {option.archived ? `${option.label} (arquivada)` : option.label}
               </NativeSelectOption>
             ))}
           </NativeSelect>

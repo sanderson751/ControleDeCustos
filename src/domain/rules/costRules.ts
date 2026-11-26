@@ -1,7 +1,7 @@
 import {
   type CategoryFilter,
   type CategoryTotal,
-  COST_CATEGORIES,
+  DEFAULT_CATEGORIES,
   type CostCategory,
   type CostEntry,
   type CostFilter,
@@ -14,16 +14,32 @@ import {
 
 export const MAX_INSTALLMENTS = 120;
 
+/** Id de categoria valido: texto nao vazio (padrao ou personalizada). */
 export function isCostCategory(value: unknown): value is CostCategory {
-  return (
-    typeof value === "string" &&
-    (COST_CATEGORIES as readonly string[]).includes(value)
-  );
+  return typeof value === "string" && value.trim().length > 0;
 }
 
-/** Categoria valida ou "outros" (lancamentos legados sem categoria). */
+/** Ordem de exibicao: padrao na ordem fixa, depois as demais por id. */
+export function compareCategoryOrder(left: CostCategory, right: CostCategory) {
+  const rank = (id: CostCategory) => {
+    const index = (DEFAULT_CATEGORIES as readonly string[]).indexOf(id);
+    return index === -1 ? DEFAULT_CATEGORIES.length : index;
+  };
+
+  return rank(left) - rank(right) || left.localeCompare(right);
+}
+
+/** Formato de id aceito pelas regras: padrao ou id automatico do Firestore. */
+export const CATEGORY_ID_PATTERN = /^[A-Za-z0-9]{1,40}$/;
+
+/**
+ * Id de categoria ou "outros" para legados: sem categoria ou com texto livre
+ * (ex.: "Alimentação"), que as regras recusariam ao editar.
+ */
 export function normalizeCategory(value: unknown): CostCategory {
-  return isCostCategory(value) ? value : FALLBACK_CATEGORY;
+  return isCostCategory(value) && CATEGORY_ID_PATTERN.test(value)
+    ? value
+    : FALLBACK_CATEGORY;
 }
 
 /** Texto para busca: minusculas, sem acentos e com espacos colapsados. */
@@ -84,22 +100,25 @@ export function sumByCategory(entries: readonly CostEntry[]): CategoryTotal[] {
     .sort(
       (left, right) =>
         right.total - left.total ||
-        COST_CATEGORIES.indexOf(left.category) -
-          COST_CATEGORIES.indexOf(right.category),
+        compareCategoryOrder(left.category, right.category),
     );
 }
 
-/** Total gasto por categoria (todas as categorias, zero quando sem lancamento). */
+/**
+ * Total gasto por categoria: zero para cada id informado (padrao por
+ * omissao) e tambem as categorias presentes nos lancamentos.
+ */
 export function spentByCategory(
   entries: readonly CostEntry[],
+  categoryIds: readonly CostCategory[] = DEFAULT_CATEGORIES,
 ): Record<CostCategory, number> {
-  const result = Object.fromEntries(
-    COST_CATEGORIES.map((category) => [category, 0]),
-  ) as Record<CostCategory, number>;
+  const result: Record<CostCategory, number> = Object.fromEntries(
+    categoryIds.map((category) => [category, 0]),
+  );
 
   for (const entry of entries) {
     result[entry.category] = roundCurrency(
-      result[entry.category] + entry.amount,
+      (result[entry.category] ?? 0) + entry.amount,
     );
   }
 

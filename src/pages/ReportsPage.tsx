@@ -39,8 +39,6 @@ import {
 } from "@/components/ui/table";
 import {
   type CategoryFilter,
-  COST_CATEGORIES,
-  COST_CATEGORY_LABELS,
   type CostEntry,
   type CostFilter,
 } from "@/domain/entities/cost";
@@ -56,6 +54,7 @@ import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { exportCsv, exportPdf } from "@/lib/reportExport";
 import { useSession } from "@/providers/AuthProvider";
+import { useCategories } from "@/providers/CategoriesProvider";
 import {
   listCostsForReport,
   type ReportsFilter,
@@ -71,6 +70,8 @@ type ExportType = "csv" | "pdf";
 
 export default function ReportsPage() {
   const { profile } = useSession();
+  const categories = useCategories();
+  const { catalog } = categories;
   const userId = profile.userId;
   const defaultRange = useMemo(() => getCurrentMonthRange(), []);
   const [startDate, setStartDate] = useState(defaultRange.startDate);
@@ -133,6 +134,14 @@ export default function ReportsPage() {
   }
 
   async function handleExport(type: ExportType) {
+    if (categories.isLoading || categories.error) {
+      notify(
+        "warning",
+        "Aguarde o carregamento das suas categorias para exportar o relatório.",
+      );
+      return;
+    }
+
     if (entries.length === 0) {
       notify(
         "warning",
@@ -145,9 +154,19 @@ export default function ReportsPage() {
 
     try {
       if (type === "csv") {
-        exportCsv(entries, appliedFilter.startDate, appliedFilter.endDate);
+        exportCsv(
+          entries,
+          appliedFilter.startDate,
+          appliedFilter.endDate,
+          catalog.labelOf,
+        );
       } else {
-        await exportPdf(entries, appliedFilter.startDate, appliedFilter.endDate);
+        await exportPdf(
+          entries,
+          appliedFilter.startDate,
+          appliedFilter.endDate,
+          catalog.labelOf,
+        );
       }
       notify(
         "success",
@@ -249,9 +268,9 @@ export default function ReportsPage() {
                 }
               >
                 <NativeSelectOption value="todas">Todas</NativeSelectOption>
-                {COST_CATEGORIES.map((option) => (
-                  <NativeSelectOption key={option} value={option}>
-                    {COST_CATEGORY_LABELS[option]}
+                {catalog.options.map((option) => (
+                  <NativeSelectOption key={option.id} value={option.id}>
+                    {option.archived ? `${option.label} (arquivada)` : option.label}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
@@ -314,7 +333,7 @@ export default function ReportsPage() {
                     <TableCell className="max-w-64 break-words whitespace-normal text-muted-foreground">
                       {entry.description || "—"}
                     </TableCell>
-                    <TableCell>{COST_CATEGORY_LABELS[entry.category]}</TableCell>
+                    <TableCell>{catalog.labelOf(entry.category)}</TableCell>
                     <TableCell>
                       <CostTypeBadge costType={entry.costType} />
                     </TableCell>

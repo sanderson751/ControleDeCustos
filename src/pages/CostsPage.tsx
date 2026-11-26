@@ -41,8 +41,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   type CategoryFilter,
-  COST_CATEGORIES,
-  COST_CATEGORY_LABELS,
   type CostEntry,
   type CostFilter,
 } from "@/domain/entities/cost";
@@ -61,6 +59,7 @@ import { formatCompetence, formatDateBR } from "@/lib/dates";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
+import { useCategories } from "@/providers/CategoriesProvider";
 import { ROUTES } from "@/routes/navigation";
 import { deleteCostEntry } from "@/services/costService";
 
@@ -74,6 +73,7 @@ const TYPE_FILTER_OPTIONS = [
 
 export default function CostsPage() {
   const { profile } = useSession();
+  const { catalog } = useCategories();
   const navigate = useNavigate();
   const userId = profile.userId;
   const canMutate = canMutateCosts(profile.role);
@@ -129,7 +129,7 @@ export default function CostsPage() {
 
   /** Recarrega e avisa quando o cadastro levou uma categoria a 80%/100% do orcamento. */
   async function handleCreated() {
-    const before = summarizeBudgets(entries, limits);
+    const before = summarizeBudgets(entries, limits, catalog.ids);
     const reloaded = await reload();
 
     // Sem orcamentos confiaveis da competencia atual, nao ha alerta a calcular.
@@ -139,9 +139,9 @@ export default function CostsPage() {
 
     for (const alert of findWorsenedBudgets(
       before,
-      summarizeBudgets(reloaded, limits),
+      summarizeBudgets(reloaded, limits, catalog.ids),
     )) {
-      notify("warning", describeBudgetAlert(alert));
+      notify("warning", describeBudgetAlert(alert, catalog.labelOf));
     }
   }
 
@@ -241,9 +241,9 @@ export default function CostsPage() {
                 <NativeSelectOption value="todas">
                   Todas as categorias
                 </NativeSelectOption>
-                {COST_CATEGORIES.map((category) => (
-                  <NativeSelectOption key={category} value={category}>
-                    {COST_CATEGORY_LABELS[category]}
+                {catalog.options.map((category) => (
+                  <NativeSelectOption key={category.id} value={category.id}>
+                    {category.archived ? `${category.label} (arquivada)` : category.label}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
@@ -287,7 +287,7 @@ export default function CostsPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>{COST_CATEGORY_LABELS[entry.category]}</TableCell>
+                      <TableCell>{catalog.labelOf(entry.category)}</TableCell>
                       <TableCell>
                         <CostTypeBadge costType={entry.costType} />
                       </TableCell>

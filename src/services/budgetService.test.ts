@@ -144,6 +144,23 @@ describe("budgetService", () => {
     expect(batch.commit).toHaveBeenCalledTimes(1);
   });
 
+  it("divide em lotes de ate 10 categorias personalizadas distintas", async () => {
+    const creates = Array.from({ length: 12 }, (_, index) => ({
+      category: `cat${index}`,
+      limit: 10,
+    }));
+
+    await applyMonthBudgetChanges("uid-1", MARCH, {
+      monthly: { creates: [{ category: "lazer", limit: 5 }, ...creates], updates: [], removals: [] },
+      recurring: [{ category: "cat0", limit: 10, operation: "create", start: MARCH }],
+      ignored: [],
+    });
+
+    expect(mocked.writeBatch).toHaveBeenCalledTimes(2);
+    expect(batch.commit).toHaveBeenCalledTimes(2);
+    expect(batch.set).toHaveBeenCalledTimes(14);
+  });
+
   it("nao escreve nada quando o plano esta vazio", async () => {
     await applyMonthBudgetChanges("uid-1", MARCH, {
       monthly: EMPTY_MONTHLY,

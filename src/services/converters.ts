@@ -1,5 +1,6 @@
 import type { DocumentData } from "firebase/firestore";
 import type { BudgetLimit, RecurringBudget } from "@/domain/entities/budget";
+import type { CustomCategory } from "@/domain/entities/category";
 import type { CostEntry } from "@/domain/entities/cost";
 import type { UserProfile } from "@/domain/entities/user";
 import { normalizeCategory } from "@/domain/rules/costRules";
@@ -80,5 +81,13 @@ export function toRecurringBudget(
     month: Number(data.month),
     limit:
       typeof data.limit === "number" && data.limit > 0 ? data.limit : null,
+  };
+}
+
+export function toCustomCategory(id: string, data: DocumentData): CustomCategory {
+  return {
+    id,
+    name: typeof data.name === "string" ? data.name : "",
+    archived: data.archived === true,
   };
 }

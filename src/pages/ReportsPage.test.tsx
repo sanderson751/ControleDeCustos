@@ -134,7 +134,12 @@ describe("ReportsPage", () => {
       await screen.findByRole("menuitem", { name: "Exportar CSV" }),
     );
 
-    expect(exportCsv).toHaveBeenCalledWith(entries, "2026-11-01", "2026-11-26");
+    expect(exportCsv).toHaveBeenCalledWith(
+      entries,
+      "2026-11-01",
+      "2026-11-26",
+      expect.any(Function),
+    );
     expect(mockedNotify).toHaveBeenCalledWith(
       "success",
       "Relatório exportado em CSV com sucesso.",
@@ -150,6 +155,7 @@ describe("ReportsPage", () => {
         entries,
         "2026-11-01",
         "2026-11-26",
+        expect.any(Function),
       ),
     );
   });

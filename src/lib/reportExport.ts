@@ -1,10 +1,14 @@
 import {
-  COST_CATEGORY_LABELS,
   COST_TYPE_LABELS,
+  type CostCategory,
   type CostEntry,
 } from "@/domain/entities/cost";
+import { DEFAULT_CATALOG } from "@/domain/rules/categoryRules";
 import { formatCurrencyBRL } from "@/lib/currency";
 import { formatCompetence, formatDateBR } from "@/lib/dates";
+
+/** Rotulo de categoria (catalogo do usuario; padrao quando omitido). */
+export type CategoryLabeler = (id: CostCategory) => string;
 
 export const REPORT_HEADER = [
   "Conta",
@@ -17,11 +21,15 @@ export const REPORT_HEADER = [
   "Parcelas",
 ] as const;
 
-function toRow(entry: CostEntry, amount: string): string[] {
+function toRow(
+  entry: CostEntry,
+  amount: string,
+  labelOf: CategoryLabeler,
+): string[] {
   return [
     entry.accountName,
     entry.description,
-    COST_CATEGORY_LABELS[entry.category],
+    labelOf(entry.category),
     COST_TYPE_LABELS[entry.costType],
     amount,
     formatDateBR(entry.createdAt),
@@ -39,11 +47,14 @@ export function neutralizeFormula(cell: string): string {
 }
 
 /** CSV separado por ";" (padrao Excel pt-BR) com BOM para acentuacao correta. */
-export function buildCsvContent(entries: readonly CostEntry[]): string {
+export function buildCsvContent(
+  entries: readonly CostEntry[],
+  labelOf: CategoryLabeler = DEFAULT_CATALOG.labelOf,
+): string {
   const rows = [
     [...REPORT_HEADER],
     ...entries.map((entry) =>
-      toRow(entry, entry.amount.toFixed(2).replace(".", ",")),
+      toRow(entry, entry.amount.toFixed(2).replace(".", ","), labelOf),
     ),
   ];
 
@@ -51,7 +62,9 @@ export function buildCsvContent(entries: readonly CostEntry[]): string {
     "﻿" +
     rows
       .map((row) =>
-        row.map((cell) => `"${neutralizeFormula(cell).replaceAll('"', '""')}"`).join(";"),
+        row
+          .map((cell) => `"${neutralizeFormula(cell).replaceAll('"', '""')}"`)
+          .join(";"),
       )
       .join("\n")
   );
@@ -85,9 +98,10 @@ export function exportCsv(
   entries: readonly CostEntry[],
   startDate: string,
   endDate: string,
+  labelOf: CategoryLabeler = DEFAULT_CATALOG.labelOf,
 ) {
   downloadBlob(
-    buildCsvContent(entries),
+    buildCsvContent(entries, labelOf),
     buildReportFileName(startDate, endDate, "csv"),
     "text/csv;charset=utf-8",
   );
@@ -98,6 +112,7 @@ export async function exportPdf(
   entries: readonly CostEntry[],
   startDate: string,
   endDate: string,
+  labelOf: CategoryLabeler = DEFAULT_CATALOG.labelOf,
 ) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import("jspdf"),
@@ -111,7 +126,9 @@ export async function exportPdf(
   autoTable(pdf, {
     startY: 22,
     head: [[...REPORT_HEADER]],
-    body: entries.map((entry) => toRow(entry, formatCurrencyBRL(entry.amount))),
+    body: entries.map((entry) =>
+      toRow(entry, formatCurrencyBRL(entry.amount), labelOf),
+    ),
     headStyles: { fillColor: [15, 16, 17] },
   });
 

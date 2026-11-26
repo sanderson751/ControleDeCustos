@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 
 let testEnv: RulesTestEnvironment;
@@ -530,5 +531,167 @@ describe("edicao de lancamento legado sem descricao", () => {
       updateDoc(ref, { category: "outros", description: "", updatedAt: serverTimestamp() }),
     );
     await assertFails(updateDoc(ref, { description: "x".repeat(501) }));
+  });
+});
+
+describe("users/{uid}/categories (categorias personalizadas)", () => {
+  const category = {
+    userId: "ana",
+    name: "Pets",
+    archived: false,
+    createdAt: new Date(2026, 10, 1),
+    updatedAt: new Date(2026, 10, 1),
+  };
+  const path = "users/ana/categories/petsId01";
+
+  async function seedCategory(uid = "ana", id = "petsId01") {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), `users/${uid}/categories/${id}`), {
+        ...category,
+        userId: uid,
+      });
+    });
+  }
+
+  it("standard cria, renomeia e arquiva; ninguem exclui", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), path), category));
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), path), { name: "Animais", updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), path), { archived: true, updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(getDocs(collection(as("ana"), "users/ana/categories")));
+    await assertFails(deleteDoc(doc(as("ana"), path)));
+  });
+
+  it("bloqueia categorias invalidas e troca de dono", async () => {
+    for (const data of [
+      { ...category, name: "" },
+      { ...category, name: "a".repeat(41) },
+      { ...category, name: 42 },
+      { ...category, archived: "nao" },
+      { ...category, userId: "gui" },
+      { ...category, name: "   " },
+      { ...category, role: "admin" },
+    ]) {
+      await assertFails(setDoc(doc(as("ana"), path), data));
+    }
+
+    await seedCategory();
+    await assertFails(updateDoc(doc(as("ana"), path), { userId: "gui" }));
+  });
+
+  it("guest nao grava e outros usuarios nao leem nem gravam", async () => {
+    await assertFails(
+      setDoc(doc(as("gui"), "users/gui/categories/x1"), { ...category, userId: "gui" }),
+    );
+    await seedCategory();
+    await assertFails(getDoc(doc(as("gui"), path)));
+    await assertFails(getDoc(doc(as("admin"), path)));
+    await assertFails(setDoc(doc(as("gui"), "users/ana/categories/x2"), category));
+  });
+
+  it("lancamento e orcamentos aceitam categoria personalizada existente do proprio usuario", async () => {
+    await seedCategory();
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/costEntries/p1"), { ...validCost, category: "petsId01" }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/budgetLimits/2026-03-petsId01"), {
+        userId: "ana",
+        year: 2026,
+        month: 3,
+        category: "petsId01",
+        limit: 300,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/recurringBudgets/2026-03-petsId01"), {
+        userId: "ana",
+        year: 2026,
+        month: 3,
+        category: "petsId01",
+        limit: 300,
+      }),
+    );
+  });
+
+  it("recusa categoria inexistente ou pertencente a outro usuario", async () => {
+    await seedCategory("gui", "daGui01");
+    for (const categoryId of ["naoExiste", "daGui01", "com-hifen", ""]) {
+      await assertFails(
+        setDoc(doc(as("ana"), `users/ana/costEntries/x-${categoryId || "vazio"}`), {
+          ...validCost,
+          category: categoryId,
+        }),
+      );
+    }
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/budgetLimits/2026-03-naoExiste"), {
+        userId: "ana",
+        year: 2026,
+        month: 3,
+        category: "naoExiste",
+        limit: 300,
+      }),
+    );
+  });
+
+  it("categoria arquivada continua valida para editar lancamentos existentes", async () => {
+    await seedCategory();
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), path), { archived: true, updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/costEntries/p2"), { ...validCost, category: "petsId01" }),
+    );
+  });
+});
+
+describe("batch de orcamentos com muitas categorias personalizadas", () => {
+  const ids = Array.from({ length: 20 }, (_, index) => `cat${index}`);
+
+  async function commitBudgets(categoryIds: string[]) {
+    const db = as("ana");
+    const batch = writeBatch(db);
+    for (const id of categoryIds) {
+      batch.set(doc(db, `users/ana/budgetLimits/2026-03-${id}`), {
+        userId: "ana",
+        year: 2026,
+        month: 3,
+        category: id,
+        limit: 100,
+      });
+      batch.set(doc(db, `users/ana/recurringBudgets/2026-03-${id}`), {
+        userId: "ana",
+        year: 2026,
+        month: 3,
+        category: id,
+        limit: 100,
+      });
+    }
+    return batch.commit();
+  }
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      for (const id of ids) {
+        await setDoc(doc(context.firestore(), `users/ana/categories/${id}`), {
+          userId: "ana",
+          name: id,
+          archived: false,
+        });
+      }
+    });
+  });
+
+  it("lote com 10 personalizadas distintas (limite do budgetService) e aceito", async () => {
+    await assertSucceeds(commitBudgets(ids.slice(0, 10)));
+    await assertSucceeds(commitBudgets(ids.slice(10)));
+  });
+
+  it("documenta o limite: 20 personalizadas em um unico batch e negado", async () => {
+    await assertFails(commitBudgets(ids));
   });
 });

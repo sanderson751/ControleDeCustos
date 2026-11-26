@@ -8,14 +8,14 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import {
-  COST_CATEGORIES,
-  COST_CATEGORY_LABELS,
   type CostCategory,
   MAX_DESCRIPTION_LENGTH,
 } from "@/domain/entities/cost";
+import { selectableCategories } from "@/domain/rules/categoryRules";
 import { MAX_INSTALLMENTS } from "@/domain/rules/costRules";
 import { maskCurrencyInput } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { useCategories } from "@/providers/CategoriesProvider";
 
 const COST_TYPE_OPTIONS = [
   { value: "fixo", label: "Fixo" },
@@ -27,6 +27,8 @@ type CostFormFieldsProps = {
   value: CostFormState;
   onChange: (next: CostFormState) => void;
   disabled?: boolean;
+  /** Edicao: mantem a categoria atual mesmo arquivada. */
+  keepArchivedCategory?: boolean;
 };
 
 /** Campos compartilhados entre cadastro rapido e edicao de custo. */
@@ -35,7 +37,20 @@ export function CostFormFields({
   value,
   onChange,
   disabled,
+  keepArchivedCategory = false,
 }: CostFormFieldsProps) {
+  const { catalog } = useCategories();
+  // Ativas + a categoria atual, mesmo arquivada (edicao de lancamento antigo).
+  const categoryOptions = selectableCategories(
+    catalog,
+    keepArchivedCategory ? value.category || undefined : undefined,
+  );
+  // Categoria fora das opcoes (arquivada no cadastro, desconhecida) exige nova escolha.
+  const selectedCategory = categoryOptions.some(
+    (option) => option.id === value.category,
+  )
+    ? value.category
+    : "";
   // Conta o texto aparado: e o mesmo valor validado, gravado e medido pelas regras.
   const descriptionLength = value.description.trim().length;
   const isDescriptionTooLong = descriptionLength > MAX_DESCRIPTION_LENGTH;
@@ -77,7 +92,7 @@ export function CostFormFields({
         <Label htmlFor={`${idPrefix}-category`}>Categoria</Label>
         <NativeSelect
           id={`${idPrefix}-category`}
-          value={value.category}
+          value={selectedCategory}
           onChange={(event) =>
             update({ category: event.target.value as CostCategory | "" })
           }
@@ -87,9 +102,9 @@ export function CostFormFields({
           <NativeSelectOption value="" disabled>
             Selecione
           </NativeSelectOption>
-          {COST_CATEGORIES.map((category) => (
-            <NativeSelectOption key={category} value={category}>
-              {COST_CATEGORY_LABELS[category]}
+          {categoryOptions.map((option) => (
+            <NativeSelectOption key={option.id} value={option.id}>
+              {option.archived ? `${option.label} (arquivada)` : option.label}
             </NativeSelectOption>
           ))}
         </NativeSelect>

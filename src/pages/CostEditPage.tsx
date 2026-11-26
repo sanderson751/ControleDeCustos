@@ -26,6 +26,7 @@ import { canMutateCosts } from "@/domain/rules/permissions";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
+import { useCategories } from "@/providers/CategoriesProvider";
 import { ROUTES, withCompetence } from "@/routes/navigation";
 import { getCostEntryById, updateCostEntry } from "@/services/costService";
 
@@ -35,6 +36,7 @@ export default function CostEditPage() {
   const navigate = useNavigate();
   const userId = profile.userId;
   const canMutate = canMutateCosts(profile.role);
+  const categories = useCategories();
 
   const [form, setForm] = useState<CostFormState>(EMPTY_COST_FORM);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,6 +95,21 @@ export default function CostEditPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // Categoria inexistente no catalogo (ex.: legado) seria negada pelas regras.
+    if (
+      !categories.isLoading &&
+      !categories.error &&
+      form.category &&
+      !categories.catalog.ids.includes(form.category)
+    ) {
+      setForm((current) => ({ ...current, category: "" }));
+      notify(
+        "warning",
+        "A categoria deste lançamento não está mais disponível. Selecione outra.",
+      );
+      return;
+    }
 
     const validation = validateCostForm(toCostFormValues(form));
 
@@ -177,6 +194,7 @@ export default function CostEditPage() {
                   value={form}
                   onChange={setForm}
                   disabled={isSaving}
+                  keepArchivedCategory
                 />
               </div>
               <div className="flex flex-wrap gap-2">

@@ -2,8 +2,9 @@ import { BUDGET_STATUS_TONE } from "@/components/budgets/budgetPresentation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { CategoryBudgetSummary } from "@/domain/entities/budget";
-import { COST_CATEGORY_LABELS, type CategoryTotal } from "@/domain/entities/cost";
+import type { CategoryTotal } from "@/domain/entities/cost";
 import { formatCurrencyBRL } from "@/lib/currency";
+import { useCategories } from "@/providers/CategoriesProvider";
 
 type CategoryBreakdownProps = {
   totals: readonly CategoryTotal[];
@@ -17,6 +18,7 @@ export function CategoryBreakdown({
   budgets,
   isLoading = false,
 }: CategoryBreakdownProps) {
+  const { catalog } = useCategories();
   const budgetByCategory = new Map(
     budgets.map((summary) => [summary.category, summary]),
   );
@@ -40,7 +42,7 @@ export function CategoryBreakdown({
             {totals.map((item) => {
               const budget = budgetByCategory.get(item.category);
               const hasBudget = budget?.limit != null;
-              const label = COST_CATEGORY_LABELS[item.category];
+              const label = catalog.labelOf(item.category);
 
               return (
                 <li key={item.category} className="space-y-2">

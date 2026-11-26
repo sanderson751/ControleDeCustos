@@ -8,6 +8,17 @@ import { makeCostEntry, makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
 vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
+vi.mock("@/providers/CategoriesProvider", async () => {
+  const { DEFAULT_CATALOG } = await import("@/domain/rules/categoryRules");
+  return {
+    useCategories: vi.fn(() => ({
+      catalog: DEFAULT_CATALOG,
+      customs: [],
+      isLoading: false,
+      error: null,
+    })),
+  };
+});
 vi.mock("@/lib/notify", () => ({ notify: vi.fn() }));
 vi.mock("@/services/costService", () => ({
   getCostEntryById: vi.fn(),
@@ -191,5 +202,28 @@ describe("CostEditPage", () => {
       screen.getByText("Você não possui permissão para editar custos."),
     ).toBeInTheDocument();
     expect(mockedGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("CostEditPage - categoria indisponivel", () => {
+  it("regressao: categoria fora do catalogo exige nova escolha antes de salvar", async () => {
+    mockedUseSession.mockReturnValue({
+      profile: makeProfile("standard"),
+      firebaseUser: {} as never,
+    });
+    mockedGet.mockResolvedValue(makeCostEntry({ category: "sumiuId" }));
+    const { user } = renderWithRouter(<CostEditPage />, {
+      route: "/costs/cost-9/edit",
+      path: "/costs/:costId/edit",
+    });
+
+    expect(await screen.findByLabelText("Categoria")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(mockedNotify).toHaveBeenCalledWith(
+      "warning",
+      "A categoria deste lançamento não está mais disponível. Selecione outra.",
+    );
+    expect(mockedUpdate).not.toHaveBeenCalled();
   });
 });

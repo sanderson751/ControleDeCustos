@@ -155,3 +155,28 @@ describe("persistencia de orcamento", () => {
     ).toBe(false);
   });
 });
+
+describe("categorias personalizadas no resumo de orcamento", () => {
+  it("inclui categorias informadas e as presentes em lancamentos/limites", () => {
+    const summaries = summarizeBudgets(
+      [makeCostEntry({ category: "pets1", amount: 90 })],
+      [makeBudget("viagem1", 500)],
+      ["moradia", "assin1"],
+    );
+
+    expect(summaries.map((item) => item.category).sort()).toEqual(
+      ["assin1", "moradia", "pets1", "viagem1"].sort(),
+    );
+    expect(summaries.find((item) => item.category === "pets1")?.spent).toBe(90);
+  });
+
+  it("desempata pela ordem padrao e depois pelo id das personalizadas", () => {
+    const summaries = summarizeBudgets([], [], ["zz", "outros", "aa", "moradia"]);
+    expect(summaries.map((item) => item.category)).toEqual([
+      "moradia",
+      "outros",
+      "aa",
+      "zz",
+    ]);
+  });
+});

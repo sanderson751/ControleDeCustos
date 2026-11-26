@@ -25,7 +25,9 @@ npm run firestore:deploy
 - [ ] Regras e índices publicados sem erro.
 
 > As regras novas são a única barreira de segurança do app (não há mais backend).
-> Publique-as **antes** do deploy do site.
+> Publique-as **antes** do deploy do site. Isso vale a cada nova versão das regras — por
+> exemplo, as categorias personalizadas: sem as regras novas, a leitura de `categories` é
+> negada e lançamentos com categoria personalizada são recusados.
 
 ## 3. Migrar usuários Google criados na versão Next.js
 

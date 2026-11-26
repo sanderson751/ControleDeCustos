@@ -2,6 +2,7 @@ import { OctagonAlertIcon, TriangleAlertIcon } from "lucide-react";
 import type { CategoryBudgetSummary } from "@/domain/entities/budget";
 import { describeBudgetAlert } from "@/components/budgets/budgetPresentation";
 import { cn } from "@/lib/utils";
+import { useCategories } from "@/providers/CategoriesProvider";
 
 /** Alertas de atencao (>= 80%) e estouro (>= 100%) da competencia. */
 export function BudgetAlerts({
@@ -9,6 +10,8 @@ export function BudgetAlerts({
 }: {
   alerts: readonly CategoryBudgetSummary[];
 }) {
+  const { catalog } = useCategories();
+
   if (alerts.length === 0) {
     return null;
   }
@@ -33,7 +36,9 @@ export function BudgetAlerts({
               )}
             >
               <Icon className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-              <p className="text-sm font-medium">{describeBudgetAlert(alert)}</p>
+              <p className="text-sm font-medium">
+                {describeBudgetAlert(alert, catalog.labelOf)}
+              </p>
             </li>
           );
         })}
