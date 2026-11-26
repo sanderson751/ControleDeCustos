@@ -15,10 +15,10 @@ A branch `main` é protegida no GitHub: **todo merge exige PR**. Não existe CI 
    Pare e reporte se algo falhar.
 3. **Revisão**: `git status` e `git diff`. Não inclua `.env*`, `.firebaserc`,
    `.claude/settings.local.json`, `dist/` ou `coverage/`.
-4. **Commits**: mensagens em pt-BR, imperativo, padrão `tipo(escopo): descrição`
+4. **Commits**: mensagens em pt-BR, imperativo, padrão `tipo(escopo): descrição`, **sem** linhas de atribuição de IA (`Co-Authored-By`, "Generated with ...")
    (ex.: `feat(relatorios): adiciona filtro por categoria`). Agrupe por assunto.
 5. **Push**: `git push -u origin <branch>`.
-6. **PR**: `gh pr create --base main` com título curto e corpo contendo:
+6. **PR**: `gh pr create --base main` com título curto (sem menção a ferramentas de IA) e corpo contendo:
    - Resumo do que muda e por quê (link para `specs/<feature>/`).
    - Como testar (comandos + passos manuais, incluindo light/dark).
    - Impacto em `firestore.rules`/índices e se exige `npm run firestore:deploy`.

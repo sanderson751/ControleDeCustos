@@ -90,7 +90,8 @@ users/{uid}                        # perfil + role (admin|standard|guest)
 users/{uid}/settings/profile       # ui.theme, ui.sidebarCollapsed, currency, locale
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, installmentsTotal,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
-users/{uid}/budgetLimits/{AAAA-MM-categoria}  # year, month, category, limit
+users/{uid}/budgetLimits/{AAAA-MM-categoria}     # orçamento de um único mês (exceção)
+users/{uid}/recurringBudgets/{AAAA-MM-categoria} # vigência recorrente a partir do mês (limit null = encerra)
 ```
 
 Categorias padrão (valores sem acento): `moradia, alimentacao, transporte, saude, educacao,
@@ -137,6 +138,7 @@ Checklist completo: `specs/_template/dod-checklist.md`. Resumo:
 - Crie branch a partir da `main` atualizada: `feat/…`, `fix/…`, `refactor/…`, `docs/…`, `chore/…`.
 - Antes de abrir o PR: `npm run verify` verde (+ `npm run test:rules` se mexeu em regras/dados).
 - Commits em pt-BR, no imperativo e focados (ex.: `feat(custos): adiciona orçamento por categoria`).
+- **Sem atribuição de IA**: nunca incluir `Co-Authored-By` de IA, "Generated with ..." ou qualquer menção a ferramentas de IA em commits, PRs ou textos informativos.
 - Não há CI configurado: a validação é local e responsabilidade de quem abre o PR.
 - Use a skill `/abrir-pr` para o passo a passo.
 
