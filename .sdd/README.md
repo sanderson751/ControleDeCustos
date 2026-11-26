@@ -34,4 +34,5 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - `specs/categorias-de-custo/`: categoria obrigatoria nos lancamentos, navegacao por competencia e consolidado por categoria.
 - `specs/orcamento-por-categoria/`: orcamento mensal por categoria e alertas de 80%/100%.
 - `specs/orcamento-recorrente/`: orcamento recorrente com vigencias e excecoes mensais.
+- `specs/evolucao-mensal/`: grafico de evolucao mensal de gasto x orcamento.
 - `CLAUDE.md` e `.claude/`: mapeamento dos agentes e skills do SDD para o Claude Code.
