@@ -72,6 +72,8 @@ Configuração:
 3. Copie `.firebaserc.example` para `.firebaserc` e informe o ID do projeto.
 4. `npm run dev` e acesse http://localhost:5173
 
+Checklist de publicação (Console do Firebase, regras, migração e deploy): [`docs/pendencias-deploy.md`](docs/pendencias-deploy.md).
+
 Primeiro administrador: todo usuário novo nasce com papel `standard`. Promova o primeiro admin
 alterando `role` para `"admin"` no documento `users/{uid}` pelo Console do Firebase.
 
