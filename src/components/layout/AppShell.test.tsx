@@ -53,6 +53,22 @@ describe("AppShell", () => {
     expect(screen.getByText("Carla Dias")).toBeInTheDocument();
   });
 
+  it("exibe Orcamentos e preserva a competencia nos links mensais", async () => {
+    setup("guest", "/home?mes=2026-02");
+
+    expect(
+      await screen.findByRole("link", { name: "Orçamentos" }),
+    ).toHaveAttribute("href", "/budgets?mes=2026-02");
+    expect(screen.getByRole("link", { name: "Custos" })).toHaveAttribute(
+      "href",
+      "/costs?mes=2026-02",
+    );
+    expect(screen.getByRole("link", { name: "Relatórios" })).toHaveAttribute(
+      "href",
+      "/reports",
+    );
+  });
+
   it("oculta gestao de usuarios para standard e guest", async () => {
     setup("standard");
     expect(await screen.findByRole("link", { name: "Custos" })).toBeInTheDocument();

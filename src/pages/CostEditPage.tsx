@@ -26,7 +26,7 @@ import { canMutateCosts } from "@/domain/rules/permissions";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
-import { ROUTES } from "@/routes/navigation";
+import { ROUTES, withCompetence } from "@/routes/navigation";
 import { getCostEntryById, updateCostEntry } from "@/services/costService";
 
 export default function CostEditPage() {
@@ -39,6 +39,7 @@ export default function CostEditPage() {
   const [form, setForm] = useState<CostFormState>(EMPTY_COST_FORM);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [backTarget, setBackTarget] = useState<string>(ROUTES.costs);
 
   useEffect(() => {
     if (!canMutate) {
@@ -61,6 +62,13 @@ export default function CostEditPage() {
         }
 
         setForm(fromCostEntry(entry));
+        // Volta para a competencia do lancamento (preserva ?mes=).
+        setBackTarget(
+          withCompetence(ROUTES.costs, {
+            year: entry.competenceYear,
+            month: entry.competenceMonth,
+          }),
+        );
         setIsLoading(false);
       })
       .catch((loadError: unknown) => {
@@ -86,8 +94,7 @@ export default function CostEditPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const values = toCostFormValues(form);
-    const validation = validateCostForm(values);
+    const validation = validateCostForm(toCostFormValues(form));
 
     if (!validation.ok) {
       notify("warning", validation.message);
@@ -97,9 +104,9 @@ export default function CostEditPage() {
     setIsSaving(true);
 
     try {
-      await updateCostEntry(userId, costId, values);
+      await updateCostEntry(userId, costId, validation.values);
       notify("success", "Custo atualizado com sucesso.");
-      navigate(ROUTES.costs);
+      navigate(backTarget);
     } catch (saveError) {
       notify(
         "error",
@@ -117,7 +124,7 @@ export default function CostEditPage() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to={ROUTES.costs}>Custos</Link>
+            <Link to={backTarget}>Custos</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
@@ -183,7 +190,7 @@ export default function CostEditPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate(ROUTES.costs)}
+                  onClick={() => navigate(backTarget)}
                   disabled={isSaving}
                 >
                   Cancelar

@@ -39,6 +39,8 @@
 
 ## Pendências operacionais (responsável pelo projeto)
 
+Passo a passo detalhado em [`docs/pendencias-deploy.md`](../../docs/pendencias-deploy.md).
+
 - [ ] Habilitar provedor Google no Firebase Authentication (antes era via OAuth do NextAuth).
 - [ ] `npm run firestore:deploy` para publicar as novas regras.
 - [ ] Rodar `npm run migrate:legacy-google-users` (simulação) e, se houver usuários, `-- --apply`.

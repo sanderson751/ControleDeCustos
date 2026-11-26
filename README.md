@@ -36,10 +36,12 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
 
 - Login com email/senha e Google; cadastro de conta.
 - Controle de acesso por papéis (Admin, Standard, Guest) na UI e nas regras do Firestore.
-- Dashboard do mês com totais de custos fixos e variáveis.
-- Cadastro rápido, listagem com filtro e paginação, edição e exclusão (com confirmação) de custos.
+- Dashboard por competência (navegação entre meses) com totais fixos/variáveis, consolidado por categoria e alertas de orçamento.
+- Cadastro rápido com categoria, listagem com filtros (frente e categoria) e paginação, edição e exclusão (com confirmação) de custos.
 - Parcelamento de custos fixos (um lançamento por competência).
-- Relatórios por período e frente, com exportação CSV e PDF.
+- Orçamento mensal por categoria com consumo, status e cópia do mês anterior.
+- Alertas ao atingir 80% e ao estourar 100% do orçamento (no Início e ao cadastrar um custo).
+- Relatórios por período, frente e categoria, com exportação CSV e PDF.
 - Gestão de perfis de usuários (admin).
 - Tema light/dark e menu lateral retrátil com preferência salva no Firestore.
 - Feedback padronizado (snackbar) para sucesso, erro e warning.
@@ -71,6 +73,8 @@ Configuração:
 2. Copie `.env.example` para `.env.local` e preencha as variáveis `VITE_FIREBASE_*` do app Web.
 3. Copie `.firebaserc.example` para `.firebaserc` e informe o ID do projeto.
 4. `npm run dev` e acesse http://localhost:5173
+
+Checklist de publicação (Console do Firebase, regras, migração e deploy): [`docs/pendencias-deploy.md`](docs/pendencias-deploy.md).
 
 Primeiro administrador: todo usuário novo nasce com papel `standard`. Promova o primeiro admin
 alterando `role` para `"admin"` no documento `users/{uid}` pelo Console do Firebase.

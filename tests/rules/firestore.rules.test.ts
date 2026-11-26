@@ -23,6 +23,7 @@ const validCost = {
   accountName: "Aluguel",
   amount: 1500,
   costType: "fixo",
+  category: "moradia",
   installmentsTotal: 1,
   competenceYear: 2026,
   competenceMonth: 11,
@@ -207,6 +208,8 @@ describe("users/{uid}/costEntries", () => {
       { ...validCost, installmentsTotal: 121 },
       { ...validCost, competenceMonth: 13 },
       { ...validCost, userId: "gui" },
+      { ...validCost, category: "viagem" },
+      (({ category: _ignored, ...withoutCategory }) => withoutCategory)(validCost),
     ];
 
     for (const [index, data] of invalids.entries()) {
@@ -249,5 +252,120 @@ describe("users/{uid}/costEntries", () => {
       setDoc(doc(as("admin"), "users/ana/costEntries/intruso"), validCost),
     );
     await assertFails(deleteDoc(doc(as("admin"), "users/ana/costEntries/c1")));
+  });
+});
+
+describe("users/{uid}/budgetLimits", () => {
+  const validBudget = {
+    userId: "ana",
+    year: 2026,
+    month: 3,
+    category: "alimentacao",
+    limit: 1200,
+    createdAt: new Date(2026, 2, 1),
+    updatedAt: new Date(2026, 2, 1),
+  };
+  const budgetPath = "users/ana/budgetLimits/2026-03-alimentacao";
+
+  it("standard cria, altera o limite e remove o proprio orcamento", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), budgetPath), validBudget));
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), budgetPath), {
+        limit: 1500,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(getDoc(doc(as("ana"), budgetPath)));
+    await assertSucceeds(deleteDoc(doc(as("ana"), budgetPath)));
+  });
+
+  it("bloqueia orcamentos invalidos", async () => {
+    const invalids = [
+      { ...validBudget, limit: 0 },
+      { ...validBudget, limit: "1200" },
+      { ...validBudget, limit: 1000000001 },
+      { ...validBudget, category: "viagem" },
+      { ...validBudget, month: 13 },
+      { ...validBudget, year: 1999 },
+      { ...validBudget, userId: "gui" },
+      { ...validBudget, month: 4 }, // id 2026-03 com dados de abril
+    ];
+
+    for (const data of invalids) {
+      await assertFails(
+        setDoc(doc(as("ana"), budgetPath), data),
+      );
+    }
+  });
+
+  it("nao permite trocar categoria/competencia de um orcamento existente", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), budgetPath), validBudget);
+    });
+
+    await assertFails(
+      updateDoc(doc(as("ana"), budgetPath), { category: "lazer" }),
+    );
+    await assertFails(updateDoc(doc(as("ana"), budgetPath), { month: 4 }));
+  });
+
+  it("guest e outros usuarios nao gravam; somente o dono le", async () => {
+    await assertFails(
+      setDoc(doc(as("gui"), "users/gui/budgetLimits/2026-03-lazer"), {
+        ...validBudget,
+        userId: "gui",
+        category: "lazer",
+      }),
+    );
+    await assertFails(setDoc(doc(as("admin"), budgetPath), validBudget));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), budgetPath), validBudget);
+    });
+    await assertFails(getDoc(doc(as("admin"), budgetPath)));
+    await assertFails(deleteDoc(doc(as("gui"), budgetPath)));
+  });
+});
+
+describe("id deterministico de budgetLimits", () => {
+  it("aceita meses de dois digitos e recusa id que nao corresponde aos dados", async () => {
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/budgetLimits/2026-11-lazer"), {
+        userId: "ana",
+        year: 2026,
+        month: 11,
+        category: "lazer",
+        limit: 300,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/budgetLimits/qualquer-id"), {
+        userId: "ana",
+        year: 2026,
+        month: 11,
+        category: "saude",
+        limit: 300,
+      }),
+    );
+  });
+});
+
+describe("lancamento legado sem categoria", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const { category: _ignored, ...legacy } = validCost;
+      await setDoc(doc(context.firestore(), "users/ana/costEntries/legado"), legacy);
+    });
+  });
+
+  it("pode ser lido e excluido; edicao exige informar a categoria", async () => {
+    const ref = () => doc(as("ana"), "users/ana/costEntries/legado");
+
+    await assertSucceeds(getDoc(ref()));
+    await assertFails(updateDoc(ref(), { amount: 10 }));
+    await assertSucceeds(
+      updateDoc(ref(), { amount: 10, category: "lazer", updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(deleteDoc(ref()));
   });
 });

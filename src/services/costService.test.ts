@@ -78,6 +78,7 @@ describe("costService", () => {
         accountName: "Mercado",
         amount: 120.5,
         costType: "variavel",
+        category: "outros", // documento legado sem categoria
         installmentsTotal: 1,
       });
     });
@@ -112,6 +113,7 @@ describe("costService", () => {
         id: "abc",
         accountName: "Aluguel",
         costType: "fixo",
+        category: "outros", // documento legado sem categoria
         installmentsTotal: 12,
       });
     });
@@ -123,6 +125,7 @@ describe("costService", () => {
         accountName: "  Mercado  ",
         amount: 99.9,
         costType: "variavel",
+        category: "alimentacao",
         installmentsTotal: 4,
       });
 
@@ -132,6 +135,7 @@ describe("costService", () => {
         accountName: "Mercado",
         amount: 99.9,
         costType: "variavel",
+        category: "alimentacao",
         installmentsTotal: 1,
         competenceYear: 2026,
         competenceMonth: 11,
@@ -146,6 +150,7 @@ describe("costService", () => {
         accountName: "Curso",
         amount: 300,
         costType: "fixo",
+        category: "educacao",
         installmentsTotal: 3,
       });
 
@@ -169,6 +174,7 @@ describe("costService", () => {
         accountName: "Conta antiga",
         amount: 10,
         costType: "variavel",
+        category: "alimentacao",
         createdAtManual: manualDate,
       });
 
@@ -189,6 +195,7 @@ describe("costService", () => {
           accountName: "X",
           amount: 1,
           costType: "variavel",
+          category: "alimentacao",
         }),
       ).rejects.toMatchObject({ code: "permission-denied" });
     });
@@ -200,6 +207,7 @@ describe("costService", () => {
         accountName: " Luz ",
         amount: 50,
         costType: "variavel",
+        category: "alimentacao",
         installmentsTotal: 7,
       });
 
@@ -209,6 +217,7 @@ describe("costService", () => {
           accountName: "Luz",
           amount: 50,
           costType: "variavel",
+          category: "alimentacao",
           installmentsTotal: 1,
           updatedAt: "SERVER_TIMESTAMP",
         },

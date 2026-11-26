@@ -2,16 +2,24 @@ import {
   ChartColumnIcon,
   HouseIcon,
   type LucideIcon,
+  PiggyBankIcon,
   UsersIcon,
   WalletIcon,
 } from "lucide-react";
+import type { Competence } from "@/domain/entities/cost";
 import type { UserRole } from "@/domain/entities/user";
+import {
+  getCurrentCompetence,
+  isSameCompetence,
+  toCompetenceParam,
+} from "@/domain/rules/competence";
 
 export const ROUTES = {
   login: "/login",
   home: "/home",
   costs: "/costs",
   costEdit: (costId: string) => `/costs/${encodeURIComponent(costId)}/edit`,
+  budgets: "/budgets",
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;
@@ -23,11 +31,32 @@ export type NavigationItem = {
   icon: LucideIcon;
   /** Quando definido, apenas estes papeis enxergam o item. */
   visibleTo?: readonly UserRole[];
+  /** Mantem a competencia visualizada (?mes=) ao navegar. */
+  keepsCompetence?: boolean;
 };
 
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
-  { key: "home", label: "Início", path: ROUTES.home, icon: HouseIcon },
-  { key: "costs", label: "Custos", path: ROUTES.costs, icon: WalletIcon },
+  {
+    key: "home",
+    label: "Início",
+    path: ROUTES.home,
+    icon: HouseIcon,
+    keepsCompetence: true,
+  },
+  {
+    key: "costs",
+    label: "Custos",
+    path: ROUTES.costs,
+    icon: WalletIcon,
+    keepsCompetence: true,
+  },
+  {
+    key: "budgets",
+    label: "Orçamentos",
+    path: ROUTES.budgets,
+    icon: PiggyBankIcon,
+    keepsCompetence: true,
+  },
   {
     key: "reports",
     label: "Relatórios",
@@ -47,6 +76,26 @@ export function getNavigationForRole(role: UserRole): NavigationItem[] {
   return NAVIGATION_ITEMS.filter(
     (item) => !item.visibleTo || item.visibleTo.includes(role),
   );
+}
+
+/** Caminho com `?mes=AAAA-MM` (omitido quando e a competencia atual). */
+export function withCompetence(path: string, competence: Competence): string {
+  return isSameCompetence(competence, getCurrentCompetence())
+    ? path
+    : `${path}?mes=${toCompetenceParam(competence)}`;
+}
+
+/** Destino do item preservando `?mes=` quando o item trabalha por competencia. */
+export function buildNavigationTarget(
+  item: NavigationItem,
+  currentSearch: string,
+): string {
+  if (!item.keepsCompetence) {
+    return item.path;
+  }
+
+  const month = new URLSearchParams(currentSearch).get("mes");
+  return month ? `${item.path}?mes=${encodeURIComponent(month)}` : item.path;
 }
 
 /** Item de navegacao ativo para o caminho atual (prefixo mais longo). */

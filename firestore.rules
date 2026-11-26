@@ -48,8 +48,34 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    function isValidCategory(category) {
+      return category in [
+        'moradia', 'alimentacao', 'transporte', 'saude', 'educacao', 'lazer', 'outros'
+      ];
+    }
+
+    function isValidBudget(data) {
+      return isValidCategory(data.category)
+        && data.year is int
+        && data.year >= 2000
+        && data.year <= 2100
+        && data.month is int
+        && data.month >= 1
+        && data.month <= 12
+        && data.limit is number
+        && data.limit > 0
+        && data.limit <= 1000000000;
+    }
+
+    // Id deterministico do orcamento: AAAA-MM-categoria (ex.: 2026-03-alimentacao).
+    function expectedBudgetId(data) {
+      return string(data.year) + '-' + (data.month < 10 ? '0' : '')
+        + string(data.month) + '-' + data.category;
+    }
+
     function isValidCost(data) {
-      return data.accountName is string
+      return isValidCategory(data.category)
+        && data.accountName is string
         && data.accountName.size() > 0
         && data.accountName.size() <= 200
         && data.amount is number
@@ -111,9 +137,22 @@ service cloud.firestore {
         allow delete: if isOwner(userId) && canWriteCosts();
       }
 
+      // Orcamento mensal por categoria (id deterministico AAAA-MM-categoria).
       match /budgetLimits/{budgetId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && canWriteCosts();
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidBudget(request.resource.data)
+          && budgetId == expectedBudgetId(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && !changedKeys().hasAny(['userId', 'year', 'month', 'category', 'createdAt'])
+          && isValidBudget(request.resource.data);
+
+        allow delete: if isOwner(userId) && canWriteCosts();
       }
     }
   }

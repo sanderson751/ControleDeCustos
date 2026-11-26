@@ -2,6 +2,15 @@ import type { CostFormState } from "@/components/costs/costFormState";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import {
+  COST_CATEGORIES,
+  COST_CATEGORY_LABELS,
+  type CostCategory,
+} from "@/domain/entities/cost";
 import { MAX_INSTALLMENTS } from "@/domain/rules/costRules";
 import { maskCurrencyInput } from "@/lib/currency";
 
@@ -56,6 +65,28 @@ export function CostFormFields({
           disabled={disabled}
           required
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}-category`}>Categoria</Label>
+        <NativeSelect
+          id={`${idPrefix}-category`}
+          value={value.category}
+          onChange={(event) =>
+            update({ category: event.target.value as CostCategory | "" })
+          }
+          disabled={disabled}
+          required
+        >
+          <NativeSelectOption value="" disabled>
+            Selecione
+          </NativeSelectOption>
+          {COST_CATEGORIES.map((category) => (
+            <NativeSelectOption key={category} value={category}>
+              {COST_CATEGORY_LABELS[category]}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
       </div>
 
       <div className="space-y-2">

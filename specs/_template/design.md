@@ -21,9 +21,9 @@ Resumo da abordagem tecnica.
 
 ## Padrao visual de icones
 
-- Biblioteca de icones: Material Design Icons Community (`@mdi/react` + `@mdi/js`).
+- Biblioteca de icones: `lucide-react` (padrao do shadcn/ui).
 - Controles de navegacao (appbar/menu) devem priorizar botao com icone e `aria-label`.
-- Quando menu lateral estiver retraido, exibir somente icones e tooltip com `react-tooltip`.
+- Quando menu lateral estiver retraido, exibir somente icones e `Tooltip` do shadcn/ui.
 - Itens de menu devem ter icone alinhado a esquerda do titulo no modo expandido.
 
 ## Compatibilidade de tema e contraste (obrigatorio)

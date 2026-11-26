@@ -46,6 +46,8 @@ export default defineConfig({
     environment: "jsdom",
     // Testes das regras do Firestore rodam a parte (npm run test:rules, emulador).
     include: ["src/**/*.test.{ts,tsx}"],
+    // Testes de interacao com user-event (digitacao) podem passar de 5s sob carga.
+    testTimeout: 15000,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
     clearMocks: true,

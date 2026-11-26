@@ -15,6 +15,7 @@ import {
 import type { UserRole } from "@/domain/entities/user";
 import { getRoleLabel } from "@/domain/rules/permissions";
 import {
+  buildNavigationTarget,
   findActiveNavigationItem,
   getNavigationForRole,
   ROUTES,
@@ -37,7 +38,7 @@ function BrandMark() {
 }
 
 export function AppSidebar({ role }: { role: UserRole }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const items = getNavigationForRole(role);
   const activeItem = findActiveNavigationItem(pathname);
 
@@ -81,7 +82,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
                       tooltip={item.label}
                     >
                       <NavLink
-                        to={item.path}
+                        to={buildNavigationTarget(item, search)}
                         aria-current={isActive ? "page" : undefined}
                       >
                         <item.icon aria-hidden="true" />

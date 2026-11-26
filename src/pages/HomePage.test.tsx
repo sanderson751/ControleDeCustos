@@ -1,33 +1,42 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import HomePage from "@/pages/HomePage";
 import { useSession } from "@/providers/AuthProvider";
+import { listMonthBudgets } from "@/services/budgetService";
 import { listMonthCosts } from "@/services/costService";
-import { makeCostEntry, makeProfile } from "@/test/factories";
+import { makeBudget, makeCostEntry, makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
 vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
 vi.mock("@/services/costService", () => ({ listMonthCosts: vi.fn() }));
+vi.mock("@/services/budgetService", () => ({ listMonthBudgets: vi.fn() }));
 
 const mockedUseSession = vi.mocked(useSession);
 const mockedList = vi.mocked(listMonthCosts);
+const mockedBudgets = vi.mocked(listMonthBudgets);
+
+function asUser(role: "standard" | "guest" = "standard") {
+  mockedUseSession.mockReturnValue({
+    profile: makeProfile(role, { displayName: "Maria Souza" }),
+    firebaseUser: {} as never,
+  });
+}
 
 describe("HomePage", () => {
+  beforeEach(() => {
+    mockedBudgets.mockResolvedValue([]);
+  });
+
   it("exibe indicadores separados para total, fixos e variaveis", async () => {
-    mockedUseSession.mockReturnValue({
-      profile: makeProfile("standard", { displayName: "Maria Souza" }),
-      firebaseUser: {} as never,
-    });
+    asUser();
     mockedList.mockResolvedValue([
-      makeCostEntry({ amount: 1000, costType: "fixo" }),
-      makeCostEntry({ amount: 250, costType: "variavel" }),
+      makeCostEntry({ amount: 1000, costType: "fixo", category: "moradia" }),
+      makeCostEntry({ amount: 250, costType: "variavel", category: "lazer" }),
     ]);
 
     renderWithRouter(<HomePage />);
 
     expect(await screen.findByText("R$ 1.250,00")).toBeInTheDocument();
     expect(screen.getByText("Total de custos")).toBeInTheDocument();
-    expect(screen.getByText("R$ 1.000,00")).toBeInTheDocument();
-    expect(screen.getByText("R$ 250,00")).toBeInTheDocument();
     expect(screen.getByText("Maria")).toBeInTheDocument();
     expect(screen.getByText("Lançamentos considerados: 2")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Registrar custo/ })).toHaveAttribute(
@@ -36,19 +45,118 @@ describe("HomePage", () => {
     );
   });
 
-  it("guest ve atalho somente leitura e aviso em caso de falha", async () => {
-    mockedUseSession.mockReturnValue({
-      profile: makeProfile("guest"),
-      firebaseUser: {} as never,
+  it("mostra o consolidado por categoria do maior para o menor", async () => {
+    asUser();
+    mockedList.mockResolvedValue([
+      makeCostEntry({ category: "alimentacao", amount: 500 }),
+      makeCostEntry({ category: "moradia", amount: 2000 }),
+    ]);
+
+    renderWithRouter(<HomePage />);
+
+    const list = await screen.findByRole("list", {
+      name: "Consolidado por categoria",
     });
-    mockedList.mockRejectedValue(new Error("offline"));
+    const items = within(list).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Moradia");
+    expect(items[0]).toHaveTextContent("80% do total");
+    expect(items[1]).toHaveTextContent("Alimentação");
+    expect(items[1]).toHaveTextContent("20% do total");
+  });
+
+  it("exibe alertas de 80% e de estouro do orcamento (cenario do steering)", async () => {
+    asUser();
+    mockedList.mockResolvedValue([
+      makeCostEntry({ category: "alimentacao", amount: 980 }),
+      makeCostEntry({ category: "lazer", amount: 300 }),
+    ]);
+    mockedBudgets.mockResolvedValue([
+      makeBudget("alimentacao", 1200),
+      makeBudget("lazer", 250),
+    ]);
+
+    renderWithRouter(<HomePage />);
+
+    const alerts = await screen.findByRole("region", {
+      name: "Alertas de orçamento",
+    });
+    expect(
+      within(alerts).getByText(
+        "Lazer estourou o orçamento: R$ 300,00 de R$ 250,00 (120%).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(alerts).getByText(
+        "Alimentação atingiu 81% do orçamento: R$ 980,00 de R$ 1.200,00.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("81% do orçamento de R$ 1.200,00")).toBeInTheDocument();
+  });
+
+  it("nao exibe alertas sem categorias acima de 80%", async () => {
+    asUser();
+    mockedList.mockResolvedValue([
+      makeCostEntry({ category: "alimentacao", amount: 100 }),
+    ]);
+    mockedBudgets.mockResolvedValue([makeBudget("alimentacao", 1200)]);
+
+    renderWithRouter(<HomePage />);
+
+    await screen.findByText("8% do orçamento de R$ 1.200,00");
+    expect(
+      screen.queryByRole("region", { name: "Alertas de orçamento" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("carrega a competencia informada na URL", async () => {
+    asUser();
+    mockedList.mockResolvedValue([]);
+
+    renderWithRouter(<HomePage />, { route: "/home?mes=2026-02" });
+
+    await waitFor(() =>
+      expect(mockedList).toHaveBeenCalledWith("uid-standard", 2026, 2),
+    );
+    expect(mockedBudgets).toHaveBeenCalledWith("uid-standard", {
+      year: 2026,
+      month: 2,
+    });
+    expect(await screen.findByText("Nenhum lançamento nesta competência.")).toBeInTheDocument();
+  });
+
+  it("informa quando os orcamentos nao carregam (alertas podem estar incompletos)", async () => {
+    asUser();
+    mockedList.mockResolvedValue([]);
+    mockedBudgets.mockRejectedValue(new Error("offline"));
 
     renderWithRouter(<HomePage />);
 
     expect(
       await screen.findByText(
-        "Não foi possível carregar os custos do mês corrente.",
+        "Não foi possível carregar os orçamentos do mês. Os alertas de orçamento podem estar incompletos.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("atalho para custos preserva a competencia visualizada", async () => {
+    asUser();
+    mockedList.mockResolvedValue([]);
+
+    renderWithRouter(<HomePage />, { route: "/home?mes=2025-07" });
+
+    expect(
+      await screen.findByRole("link", { name: /Registrar custo/ }),
+    ).toHaveAttribute("href", "/costs?mes=2025-07");
+  });
+
+  it("guest ve atalho somente leitura e aviso em caso de falha", async () => {
+    asUser("guest");
+    mockedList.mockRejectedValue(new Error("offline"));
+
+    renderWithRouter(<HomePage />);
+
+    expect(
+      await screen.findByText("Não foi possível carregar os custos do mês."),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Ver custos/ })).toBeInTheDocument();
   });

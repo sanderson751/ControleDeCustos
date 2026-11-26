@@ -6,7 +6,11 @@ import {
   Timestamp,
   where,
 } from "firebase/firestore";
-import type { CostEntry, CostFilter } from "@/domain/entities/cost";
+import type {
+  CategoryFilter,
+  CostEntry,
+  CostFilter,
+} from "@/domain/entities/cost";
 import { parseDateRange } from "@/lib/dates";
 import { toCostEntry } from "@/services/converters";
 import { costEntriesCollectionRef } from "@/services/firestorePaths";
@@ -17,6 +21,8 @@ export type ReportsFilter = {
   /** AAAA-MM-DD */
   endDate: string;
   costType: CostFilter;
+  /** Filtro aplicado no client (evita indice composto adicional). */
+  category?: CategoryFilter;
 };
 
 export class InvalidDateRangeError extends Error {
@@ -55,7 +61,11 @@ export async function listCostsForReport(
     query(costEntriesCollectionRef(userId), ...constraints),
   );
 
-  return snapshot.docs.map((docSnapshot) =>
+  const entries = snapshot.docs.map((docSnapshot) =>
     toCostEntry(docSnapshot.id, docSnapshot.data()),
   );
+
+  return !filter.category || filter.category === "todas"
+    ? entries
+    : entries.filter((entry) => entry.category === filter.category);
 }

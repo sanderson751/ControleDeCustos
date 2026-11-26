@@ -26,6 +26,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -33,7 +37,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { CostEntry, CostFilter } from "@/domain/entities/cost";
+import {
+  type CategoryFilter,
+  COST_CATEGORIES,
+  COST_CATEGORY_LABELS,
+  type CostEntry,
+  type CostFilter,
+} from "@/domain/entities/cost";
 import { calculateTotals } from "@/domain/rules/costRules";
 import { formatCurrencyBRL } from "@/lib/currency";
 import {
@@ -66,6 +76,7 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [costType, setCostType] = useState<CostFilter>("todos");
+  const [category, setCategory] = useState<CategoryFilter>("todas");
   const [appliedFilter, setAppliedFilter] = useState<ReportsFilter>({
     ...defaultRange,
     costType: "todos",
@@ -118,7 +129,7 @@ export default function ReportsPage() {
       return;
     }
 
-    await loadReport({ startDate, endDate, costType });
+    await loadReport({ startDate, endDate, costType, category });
   }
 
   async function handleExport(type: ExportType) {
@@ -195,7 +206,7 @@ export default function ReportsPage() {
         <CardContent>
           <form
             onSubmit={handleFilterSubmit}
-            className="grid gap-5 md:grid-cols-[1fr_1fr_auto_auto] md:items-end"
+            className="grid gap-5 md:grid-cols-2 md:items-end xl:grid-cols-[1fr_1fr_auto_12rem_auto]"
             aria-label="Filtros do relatório"
             noValidate
           >
@@ -228,6 +239,23 @@ export default function ReportsPage() {
                 onChange={setCostType}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="report-category">Categoria</Label>
+              <NativeSelect
+                id="report-category"
+                value={category}
+                onChange={(event) =>
+                  setCategory(event.target.value as CategoryFilter)
+                }
+              >
+                <NativeSelectOption value="todas">Todas</NativeSelectOption>
+                {COST_CATEGORIES.map((option) => (
+                  <NativeSelectOption key={option} value={option}>
+                    {COST_CATEGORY_LABELS[option]}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
             <LoadingButton
               type="submit"
               isLoading={isLoading}
@@ -252,9 +280,7 @@ export default function ReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Lançamentos
-          </CardTitle>
+          <CardTitle>Lançamentos</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -270,6 +296,7 @@ export default function ReportsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Conta</TableHead>
+                  <TableHead>Categoria</TableHead>
                   <TableHead>Frente</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Data</TableHead>
@@ -283,6 +310,7 @@ export default function ReportsPage() {
                     <TableCell className="font-medium">
                       {entry.accountName}
                     </TableCell>
+                    <TableCell>{COST_CATEGORY_LABELS[entry.category]}</TableCell>
                     <TableCell>
                       <CostTypeBadge costType={entry.costType} />
                     </TableCell>

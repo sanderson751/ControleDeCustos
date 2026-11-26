@@ -43,6 +43,7 @@ describe("CostEditPage", () => {
         accountName: "Academia",
         amount: 120,
         costType: "variavel",
+        category: "saude",
       }),
     );
     const { user, profile } = setup();
@@ -51,9 +52,11 @@ describe("CostEditPage", () => {
     expect(mockedGet).toHaveBeenCalledWith(profile.userId, "cost-9");
     expect(accountInput).toHaveValue("Academia");
     expect(screen.getByLabelText("Valor")).toHaveValue("R$ 120,00");
+    expect(screen.getByLabelText("Categoria")).toHaveValue("saude");
 
     await user.clear(accountInput);
     await user.type(accountInput, "Academia premium");
+    await user.selectOptions(screen.getByLabelText("Categoria"), "lazer");
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     await waitFor(() =>
@@ -61,6 +64,7 @@ describe("CostEditPage", () => {
         accountName: "Academia premium",
         amount: 120,
         costType: "variavel",
+        category: "lazer",
         installmentsTotal: 1,
       }),
     );
@@ -110,6 +114,52 @@ describe("CostEditPage", () => {
       "warning",
       "Informe o nome da conta.",
     );
+  });
+
+  it("volta para a competencia do lancamento e exige categoria em legado", async () => {
+    mockedGet.mockResolvedValue(
+      makeCostEntry({
+        accountName: "Antigo",
+        category: "outros",
+        competenceYear: 2025,
+        competenceMonth: 2,
+      }),
+    );
+    const { user } = setup();
+
+    expect(await screen.findByLabelText("Categoria")).toHaveValue("outros");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdate).toHaveBeenCalledWith(
+        expect.any(String),
+        "cost-9",
+        expect.objectContaining({ category: "outros" }),
+      ),
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/costs?mes=2025-02",
+    );
+  });
+
+  it("mantem o formulario e exibe erro quando a gravacao falha", async () => {
+    mockedGet.mockResolvedValue(makeCostEntry({ accountName: "Luz" }));
+    mockedUpdate.mockRejectedValueOnce(
+      Object.assign(new Error("x"), { code: "unavailable" }),
+    );
+    const { user } = setup();
+
+    await screen.findByLabelText("Conta");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedNotify).toHaveBeenCalledWith(
+        "error",
+        "Firestore indisponível no momento. Verifique sua conexão.",
+      ),
+    );
+    expect(screen.getByLabelText("Conta")).toHaveValue("Luz");
+    expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeEnabled();
   });
 
   it("bloqueia edicao para guest", () => {

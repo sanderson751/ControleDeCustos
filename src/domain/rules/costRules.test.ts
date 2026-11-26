@@ -3,14 +3,91 @@ import {
   addMonths,
   buildInstallmentPlan,
   calculateTotals,
+  type CostFormValues,
   filterByCostType,
+  filterCosts,
+  isCostCategory,
   MAX_INSTALLMENTS,
+  normalizeCategory,
   normalizeInstallments,
   paginate,
   sortByCreatedAtDesc,
+  spentByCategory,
+  sumByCategory,
   validateCostForm,
 } from "@/domain/rules/costRules";
 import { makeCostEntry } from "@/test/factories";
+
+describe("categorias", () => {
+  it("reconhece apenas categorias padrao", () => {
+    expect(isCostCategory("alimentacao")).toBe(true);
+    expect(isCostCategory("Alimentação")).toBe(false);
+    expect(isCostCategory(undefined)).toBe(false);
+  });
+
+  it("normaliza categoria ausente ou invalida para outros (legado)", () => {
+    expect(normalizeCategory("lazer")).toBe("lazer");
+    expect(normalizeCategory(undefined)).toBe("outros");
+    expect(normalizeCategory("viagem")).toBe("outros");
+  });
+});
+
+describe("filterCosts", () => {
+  const entries = [
+    makeCostEntry({ id: "a", costType: "fixo", category: "moradia" }),
+    makeCostEntry({ id: "b", costType: "variavel", category: "lazer" }),
+    makeCostEntry({ id: "c", costType: "fixo", category: "lazer" }),
+  ];
+
+  it("combina filtro de frente e categoria", () => {
+    const ids = (costType: "todos" | "fixo" | "variavel", category: "todas" | "lazer") =>
+      filterCosts(entries, { costType, category }).map((entry) => entry.id);
+
+    expect(ids("todos", "todas")).toEqual(["a", "b", "c"]);
+    expect(ids("todos", "lazer")).toEqual(["b", "c"]);
+    expect(ids("fixo", "lazer")).toEqual(["c"]);
+  });
+});
+
+describe("sumByCategory (consolidado mensal)", () => {
+  it("soma por categoria, calcula participacao e ordena do maior para o menor", () => {
+    const result = sumByCategory([
+      makeCostEntry({ category: "alimentacao", amount: 300 }),
+      makeCostEntry({ category: "moradia", amount: 2000 }),
+      makeCostEntry({ category: "alimentacao", amount: 200 }),
+    ]);
+
+    expect(result).toEqual([
+      { category: "moradia", total: 2000, share: 0.8 },
+      { category: "alimentacao", total: 500, share: 0.2 },
+    ]);
+  });
+
+  it("categoria sem lancamento nao aparece e lista vazia retorna vazio", () => {
+    expect(sumByCategory([])).toEqual([]);
+  });
+
+  it("desempata pela ordem padrao das categorias", () => {
+    const result = sumByCategory([
+      makeCostEntry({ category: "lazer", amount: 50 }),
+      makeCostEntry({ category: "moradia", amount: 50 }),
+    ]);
+    expect(result.map((item) => item.category)).toEqual(["moradia", "lazer"]);
+  });
+});
+
+describe("spentByCategory", () => {
+  it("retorna todas as categorias com zero quando nao ha gasto", () => {
+    const result = spentByCategory([
+      makeCostEntry({ category: "saude", amount: 10.1 }),
+      makeCostEntry({ category: "saude", amount: 0.2 }),
+    ]);
+
+    expect(Object.keys(result)).toHaveLength(7);
+    expect(result.saude).toBe(10.3);
+    expect(result.lazer).toBe(0);
+  });
+});
 
 describe("calculateTotals", () => {
   it("separa fixos e variaveis e soma o total", () => {
@@ -149,15 +226,23 @@ describe("buildInstallmentPlan", () => {
 });
 
 describe("validateCostForm", () => {
-  const valid = {
+  const valid: CostFormValues = {
     accountName: "Aluguel",
     amount: 100,
-    costType: "fixo" as const,
+    costType: "fixo",
+    category: "moradia",
     installmentsTotal: 1,
   };
 
-  it("aceita valores validos", () => {
-    expect(validateCostForm(valid)).toEqual({ ok: true });
+  it("aceita valores validos e devolve os valores tipados", () => {
+    expect(validateCostForm(valid)).toEqual({ ok: true, values: valid });
+  });
+
+  it("exige categoria valida", () => {
+    expect(validateCostForm({ ...valid, category: "" })).toEqual({
+      ok: false,
+      message: "Selecione uma categoria.",
+    });
   });
 
   it("exige conta preenchida", () => {

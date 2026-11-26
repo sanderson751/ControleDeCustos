@@ -1,14 +1,11 @@
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { PencilIcon, Trash2Icon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { CostFormFields } from "@/components/costs/CostFormFields";
-import {
-  EMPTY_COST_FORM,
-  toCostFormValues,
-  type CostFormState,
-} from "@/components/costs/costFormState";
+import { describeBudgetAlert } from "@/components/budgets/budgetPresentation";
+import { CostQuickAddForm } from "@/components/costs/CostQuickAddForm";
 import { CostTotalsGrid } from "@/components/costs/CostTotalsGrid";
 import { CostTypeBadge } from "@/components/costs/CostTypeBadge";
+import { CompetencePicker } from "@/components/shared/CompetencePicker";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
@@ -23,16 +20,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -46,31 +38,34 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { CostEntry, CostFilter } from "@/domain/entities/cost";
 import {
-  calculateTotals,
-  filterByCostType,
-  paginate,
-  validateCostForm,
-} from "@/domain/rules/costRules";
+  type CategoryFilter,
+  COST_CATEGORIES,
+  COST_CATEGORY_LABELS,
+  type CostEntry,
+  type CostFilter,
+} from "@/domain/entities/cost";
+import {
+  findWorsenedBudgets,
+  summarizeBudgets,
+} from "@/domain/rules/budgetRules";
+import { formatCompetenceLong, toCompetenceParam } from "@/domain/rules/competence";
+import { calculateTotals, filterCosts, paginate } from "@/domain/rules/costRules";
 import { canMutateCosts } from "@/domain/rules/permissions";
-import { getCurrentCompetence, useMonthCosts } from "@/hooks/useMonthCosts";
+import { useCompetenceParam } from "@/hooks/useCompetenceParam";
+import { useMonthBudgets } from "@/hooks/useMonthBudgets";
+import { useMonthCosts } from "@/hooks/useMonthCosts";
 import { formatCurrencyBRL } from "@/lib/currency";
-import {
-  formatCompetence,
-  formatDateBR,
-  fromInputDateAtNoon,
-  toInputDate,
-} from "@/lib/dates";
+import { formatCompetence, formatDateBR } from "@/lib/dates";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
 import { ROUTES } from "@/routes/navigation";
-import { createCostEntry, deleteCostEntry } from "@/services/costService";
+import { deleteCostEntry } from "@/services/costService";
 
 const COSTS_PAGE_SIZE = 10;
 
-const FILTER_OPTIONS = [
+const TYPE_FILTER_OPTIONS = [
   { value: "todos", label: "Todos" },
   { value: "fixo", label: "Fixos" },
   { value: "variavel", label: "Variáveis" },
@@ -81,22 +76,22 @@ export default function CostsPage() {
   const navigate = useNavigate();
   const userId = profile.userId;
   const canMutate = canMutateCosts(profile.role);
-  const { year, month } = useMemo(() => getCurrentCompetence(), []);
+  const { competence, isCurrent, setCompetence } = useCompetenceParam();
   const { entries, isLoading, error, reload } = useMonthCosts(
     userId,
-    year,
-    month,
+    competence,
   );
+  const {
+    limits,
+    isLoading: isLoadingBudgets,
+    error: budgetsError,
+  } = useMonthBudgets(userId, competence);
 
-  const [form, setForm] = useState<CostFormState>(EMPTY_COST_FORM);
-  const [useManualDate, setUseManualDate] = useState(false);
-  const [manualDate, setManualDate] = useState(() => toInputDate(new Date()));
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [filter, setFilter] = useState<CostFilter>("todos");
+  const [typeFilter, setTypeFilter] = useState<CostFilter>("todos");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("todas");
   const [page, setPage] = useState(1);
   const [pendingDelete, setPendingDelete] = useState<CostEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const isMutating = isSubmitting || deletingId !== null;
 
   useEffect(() => {
     if (error) {
@@ -104,59 +99,42 @@ export default function CostsPage() {
     }
   }, [error]);
 
+  useEffect(() => {
+    if (budgetsError) {
+      notify(
+        "warning",
+        `${budgetsError} Os alertas de orçamento não serão exibidos.`,
+      );
+    }
+  }, [budgetsError]);
+
   const totals = useMemo(() => calculateTotals(entries), [entries]);
   const filteredEntries = useMemo(
-    () => filterByCostType(entries, filter),
-    [entries, filter],
+    () => filterCosts(entries, { costType: typeFilter, category: categoryFilter }),
+    [categoryFilter, entries, typeFilter],
   );
   const pagination = paginate(filteredEntries, page, COSTS_PAGE_SIZE);
 
-  function handleFilterChange(nextFilter: CostFilter) {
-    setFilter(nextFilter);
+  function handleCompetenceChange(next: typeof competence) {
+    setCompetence(next);
     setPage(1);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** Recarrega e avisa quando o cadastro levou uma categoria a 80%/100% do orcamento. */
+  async function handleCreated() {
+    const before = summarizeBudgets(entries, limits);
+    const reloaded = await reload();
 
-    if (!canMutate) {
+    // Sem orcamentos confiaveis da competencia atual, nao ha alerta a calcular.
+    if (!reloaded || isLoadingBudgets || budgetsError) {
       return;
     }
 
-    const values = toCostFormValues(form);
-    const validation = validateCostForm(values);
-
-    if (!validation.ok) {
-      notify("warning", validation.message);
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await createCostEntry(userId, {
-        ...values,
-        createdAtManual:
-          useManualDate && manualDate
-            ? fromInputDateAtNoon(manualDate)
-            : undefined,
-      });
-
-      setForm(EMPTY_COST_FORM);
-      setUseManualDate(false);
-      setManualDate(toInputDate(new Date()));
-      notify("success", "Custo cadastrado com sucesso.");
-      await reload();
-    } catch (submitError) {
-      notify(
-        "error",
-        friendlyFirestoreErrorMessage(
-          submitError,
-          "Falha ao cadastrar custo. Tente novamente.",
-        ),
-      );
-    } finally {
-      setIsSubmitting(false);
+    for (const alert of findWorsenedBudgets(
+      before,
+      summarizeBudgets(reloaded, limits),
+    )) {
+      notify("warning", describeBudgetAlert(alert));
     }
   }
 
@@ -189,94 +167,64 @@ export default function CostsPage() {
   return (
     <section className="space-y-10" data-testid="costs-page-screen">
       <PageHeader
-        eyebrow={`Competência ${formatCompetence(month, year)}`}
+        eyebrow={`Competência ${formatCompetence(competence.month, competence.year)}`}
         title="Custos do mês"
-        description="Cadastre, filtre e acompanhe os lançamentos da competência atual."
+        description="Cadastre, filtre e acompanhe os lançamentos por competência."
+        actions={
+          <CompetencePicker
+            competence={competence}
+            isCurrent={isCurrent}
+            onChange={handleCompetenceChange}
+          />
+        }
       />
 
       <CostTotalsGrid totals={totals} isLoading={isLoading} />
 
       {canMutate && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Adição rápida
-            </CardTitle>
-            <CardDescription>
-              Custos fixos parcelados geram um lançamento por mês de competência.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-6"
-              aria-label="Adição rápida de custo"
-              noValidate
-            >
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                <CostFormFields
-                  idPrefix="cost"
-                  value={form}
-                  onChange={setForm}
-                  disabled={isMutating}
-                />
-              </div>
-
-              <div className="flex flex-col gap-4 md:flex-row md:items-end">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="cost-manual-date"
-                    checked={useManualDate}
-                    onCheckedChange={(checked) =>
-                      setUseManualDate(checked === true)
-                    }
-                    disabled={isMutating}
-                  />
-                  <Label htmlFor="cost-manual-date">
-                    Ajustar data de criação
-                  </Label>
-                </div>
-
-                {useManualDate && (
-                  <div className="space-y-2">
-                    <Label htmlFor="cost-created-at-date">Data de criação</Label>
-                    <Input
-                      id="cost-created-at-date"
-                      type="date"
-                      value={manualDate}
-                      onChange={(event) => setManualDate(event.target.value)}
-                      disabled={isMutating}
-                    />
-                  </div>
-                )}
-
-                <LoadingButton
-                  type="submit"
-                  className="md:ml-auto"
-                  isLoading={isSubmitting}
-                  loadingText="Salvando..."
-                  icon={<PlusIcon aria-hidden="true" />}
-                  disabled={isMutating}
-                >
-                  Adicionar custo
-                </LoadingButton>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <CostQuickAddForm
+          key={toCompetenceParam(competence)}
+          userId={userId}
+          competence={competence}
+          isCurrentCompetence={isCurrent}
+          disabled={deletingId !== null}
+          onCreated={handleCreated}
+        />
       )}
 
       <Card>
-        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <CardTitle>
-            Listagem detalhada
-          </CardTitle>
-          <SegmentedControl
-            ariaLabel="Filtro de custos"
-            value={filter}
-            options={FILTER_OPTIONS}
-            onChange={handleFilterChange}
-          />
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <CardTitle>Listagem detalhada</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <SegmentedControl
+              ariaLabel="Filtro de custos"
+              value={typeFilter}
+              options={TYPE_FILTER_OPTIONS}
+              onChange={(next) => {
+                setTypeFilter(next);
+                setPage(1);
+              }}
+            />
+            <div className="sm:w-52">
+              <NativeSelect
+                aria-label="Filtrar por categoria"
+                value={categoryFilter}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value as CategoryFilter);
+                  setPage(1);
+                }}
+              >
+                <NativeSelectOption value="todas">
+                  Todas as categorias
+                </NativeSelectOption>
+                {COST_CATEGORIES.map((category) => (
+                  <NativeSelectOption key={category} value={category}>
+                    {COST_CATEGORY_LABELS[category]}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -285,7 +233,8 @@ export default function CostsPage() {
             </p>
           ) : filteredEntries.length === 0 ? (
             <p className="py-6 text-muted-foreground">
-              Nenhum custo encontrado para o filtro selecionado.
+              Nenhum custo encontrado em {formatCompetenceLong(competence)} para
+              os filtros selecionados.
             </p>
           ) : (
             <div className="space-y-4">
@@ -293,6 +242,7 @@ export default function CostsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Conta</TableHead>
+                    <TableHead>Categoria</TableHead>
                     <TableHead>Frente</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Data de criação</TableHead>
@@ -308,6 +258,7 @@ export default function CostsPage() {
                       <TableCell className="font-medium">
                         {entry.accountName}
                       </TableCell>
+                      <TableCell>{COST_CATEGORY_LABELS[entry.category]}</TableCell>
                       <TableCell>
                         <CostTypeBadge costType={entry.costType} />
                       </TableCell>
@@ -332,7 +283,7 @@ export default function CostsPage() {
                                   onClick={() =>
                                     navigate(ROUTES.costEdit(entry.id))
                                   }
-                                  disabled={isMutating}
+                                  disabled={deletingId !== null}
                                 >
                                   <PencilIcon />
                                 </Button>
@@ -349,7 +300,7 @@ export default function CostsPage() {
                                   onClick={() => setPendingDelete(entry)}
                                   isLoading={deletingId === entry.id}
                                   icon={<Trash2Icon />}
-                                  disabled={isMutating}
+                                  disabled={deletingId !== null}
                                 />
                               </TooltipTrigger>
                               <TooltipContent>Excluir custo</TooltipContent>

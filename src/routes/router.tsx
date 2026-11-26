@@ -6,6 +6,7 @@ import {
   RequireRole,
 } from "@/routes/guards";
 import {
+  BudgetsPage,
   CostEditPage,
   CostsPage,
   FullPageSuspense,
@@ -58,6 +59,14 @@ export const appRoutes: RouteObject[] = [
             element: (
               <PageSuspense>
                 <CostEditPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: ROUTES.budgets,
+            element: (
+              <PageSuspense>
+                <BudgetsPage />
               </PageSuspense>
             ),
           },

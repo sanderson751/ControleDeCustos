@@ -88,9 +88,14 @@ Ao alterar `firestore.rules`, `permissions.ts` ou o modelo de dados: atualize
 ```
 users/{uid}                        # perfil + role (admin|standard|guest)
 users/{uid}/settings/profile       # ui.theme, ui.sidebarCollapsed, currency, locale
-users/{uid}/costEntries/{entryId}  # accountName, amount, costType, installmentsTotal,
+users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, installmentsTotal,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
+users/{uid}/budgetLimits/{AAAA-MM-categoria}  # year, month, category, limit
 ```
+
+Categorias padrão (valores sem acento): `moradia, alimentacao, transporte, saude, educacao,
+lazer, outros`. Lançamentos legados sem categoria são lidos como `outros`. A competência
+visualizada em Início/Custos/Orçamentos fica na URL (`?mes=AAAA-MM`).
 
 Detalhes por feature em `specs/<feature>/firestore-structure.md`. Índices em `firestore.indexes.json`.
 
