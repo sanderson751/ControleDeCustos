@@ -1,0 +1,248 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/roboto-mono";
+
+/*
+ * Tema baseado no estilo "Origin Financial" (refero.design).
+ * - Dark e o tema principal (paleta original da referencia).
+ * - Light e uma variante derivada para manter a regra SDD de compatibilidade light/dark.
+ * - Todos os componentes consomem apenas tokens semanticos (nunca hex direto).
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------- Light (variante derivada "Paper") ---------- */
+:root {
+  --radius: 0.625rem;
+
+  --background: #f5f5f7;
+  --foreground: #0f1011;
+  --card: #ffffff;
+  --card-foreground: #0f1011;
+  --popover: #ffffff;
+  --popover-foreground: #0f1011;
+  --primary: #0f1011;
+  --primary-foreground: #ffffff;
+  --secondary: #e7e7ea;
+  --secondary-foreground: #0f1011;
+  --muted: #ebebee;
+  --muted-foreground: #55565a;
+  --accent: #ebebee;
+  --accent-foreground: #0f1011;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --border: rgb(15 16 17 / 0.1);
+  --input: rgb(15 16 17 / 0.16);
+  --input-background: #ffffff;
+  --ring: #4b49aa;
+
+  --chart-1: #00b3dd;
+  --chart-2: #847dff;
+  --chart-3: #dd90d8;
+  --chart-4: #90b8f0;
+  --chart-5: #4b49aa;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f1011;
+  --sidebar-primary: #0f1011;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ebebee;
+  --sidebar-accent-foreground: #0f1011;
+  --sidebar-border: rgb(15 16 17 / 0.08);
+  --sidebar-ring: #4b49aa;
+
+  /* Status (snackbar e badges) — mesmos tons nos dois temas, texto escuro para contraste AA */
+  --success: #4ade80;
+  --success-foreground: #052e16;
+  --warning: #facc15;
+  --warning-foreground: #1f1500;
+  --danger: #f87171;
+  --danger-foreground: #2a0505;
+
+  /* Tiles cromaticos (categorias) — sempre com texto escuro */
+  --tile-foreground: #000000;
+}
+
+/* ---------- Dark (paleta original Origin Financial) ---------- */
+.dark {
+  --background: #0f1011; /* Obsidian */
+  --foreground: #f5f5f7; /* Cloud */
+  --card: #1b1c1d;
+  --card-foreground: #f5f5f7;
+  --popover: #2e2e2e; /* Graphite */
+  --popover-foreground: #f5f5f7;
+  --primary: #ffffff; /* White-on-black: unica acao primaria */
+  --primary-foreground: #000000;
+  --secondary: #2e2e2e; /* Graphite */
+  --secondary-foreground: #f5f5f7;
+  --muted: #2e2e2e;
+  --muted-foreground: #9f9fa0; /* Ash */
+  --accent: #3f4041; /* Steel */
+  --accent-foreground: #ffffff;
+  --destructive: #f87171;
+  --destructive-foreground: #2a0505;
+  --border: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.15);
+  --input-background: #000000; /* Void */
+  --ring: #847dff; /* Iris Gleam */
+
+  --sidebar: #090a0b; /* Abyss */
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #2e2e2e;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #847dff;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", "DM Serif Display", Georgia, serif;
+  --font-mono: "Roboto Mono Variable", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px); /* 8px: botoes, inputs, nav */
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: 1rem; /* 16px: cards */
+  --radius-tile: 1.875rem; /* 30px: tiles de categoria */
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-tile-foreground: var(--tile-foreground);
+
+  /* Paleta de marca Origin Financial */
+  --color-iris: #847dff;
+  --color-pale-iris: #d1c9ff;
+  --color-deep-iris: #4b49aa;
+  --color-cyan-signal: #00b3dd;
+  --color-orchid: #dd90d8;
+  --color-periwinkle: #90b8f0;
+  --color-silver: #cacaca;
+
+  /* Escala tipografica (Minor Third a partir de 16px) */
+  --text-display: 5rem;
+  --text-display--line-height: 0.95;
+  --text-heading-lg: 2.375rem;
+  --text-heading-lg--line-height: 1;
+  --text-heading: 1.75rem;
+  --text-heading--line-height: 1.1;
+  --text-subheading: 1.125rem;
+  --text-subheading--line-height: 1.5;
+  --text-mono-label: 0.6875rem;
+  --text-mono-label--line-height: 1.6;
+
+  --ease-reveal: cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+/* Rotulo mono em caixa alta (Roboto Mono 11px, tracking largo) */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-label);
+  line-height: var(--text-mono-label--line-height);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Titulos em serifa leve — nunca em negrito */
+@utility font-display-light {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display-light;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* ---------- Snackbar padrao (Sonner): vermelho / verde / amarelo ---------- */
+[data-sonner-toaster] [data-sonner-toast][data-type="success"] {
+  background: var(--success);
+  color: var(--success-foreground);
+  border-color: transparent;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="warning"] {
+  background: var(--warning);
+  color: var(--warning-foreground);
+  border-color: transparent;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="error"] {
+  background: var(--danger);
+  color: var(--danger-foreground);
+  border-color: transparent;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border-color: var(--border);
+}

@@ -4,7 +4,7 @@ node_modules/
 # Build output
 dist/
 
-# Next.js
+# Legado Next.js (caches locais antigos)
 .next/
 .swc/
 out/
@@ -38,3 +38,9 @@ firebase-debug.*.log
 Thumbs.db
 .vscode/
 .idea/
+
+# Firebase CLI (projeto local; ver .firebaserc.example)
+.firebaserc
+
+# Claude Code (configuracao pessoal)
+.claude/settings.local.json

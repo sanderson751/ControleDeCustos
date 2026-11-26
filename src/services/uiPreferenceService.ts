@@ -1,43 +1,44 @@
-import { requestJson } from './httpClient'
+import { getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  DEFAULT_UI_PREFERENCES,
+  type ThemeMode,
+  type UiPreferences,
+} from "@/domain/entities/user";
+import { userSettingsDocRef } from "@/services/firestorePaths";
 
-export type ThemeMode = 'light' | 'dark'
-
-type UiPreferences = {
-  sidebarCollapsed: boolean
-  theme: ThemeMode
+function normalizeTheme(value: unknown): ThemeMode {
+  return value === "light" || value === "dark"
+    ? value
+    : DEFAULT_UI_PREFERENCES.theme;
 }
 
-export async function getSidebarCollapsedPreference(userId: string): Promise<boolean | null> {
-  void userId
+export async function getUiPreferences(userId: string): Promise<UiPreferences> {
+  const snapshot = await getDoc(userSettingsDocRef(userId));
+  const ui = snapshot.exists()
+    ? (snapshot.data().ui as Partial<UiPreferences> | undefined)
+    : undefined;
 
-  const preferences = await requestJson<UiPreferences>('/api/preferences/ui')
-  return preferences.sidebarCollapsed
+  return {
+    sidebarCollapsed:
+      typeof ui?.sidebarCollapsed === "boolean"
+        ? ui.sidebarCollapsed
+        : DEFAULT_UI_PREFERENCES.sidebarCollapsed,
+    theme: normalizeTheme(ui?.theme),
+  };
 }
 
-export async function setSidebarCollapsedPreference(
+/** Atualiza apenas os campos informados (merge profundo do mapa `ui`). */
+export async function updateUiPreferences(
   userId: string,
-  isCollapsed: boolean,
+  updates: Partial<UiPreferences>,
 ): Promise<void> {
-  void userId
-
-  await requestJson('/api/preferences/ui', {
-    method: 'PATCH',
-    body: JSON.stringify({ sidebarCollapsed: isCollapsed }),
-  })
-}
-
-export async function getThemePreference(userId: string): Promise<ThemeMode | null> {
-  void userId
-
-  const preferences = await requestJson<UiPreferences>('/api/preferences/ui')
-  return preferences.theme
-}
-
-export async function setThemePreference(userId: string, theme: ThemeMode): Promise<void> {
-  void userId
-
-  await requestJson('/api/preferences/ui', {
-    method: 'PATCH',
-    body: JSON.stringify({ theme }),
-  })
+  await setDoc(
+    userSettingsDocRef(userId),
+    {
+      userId,
+      ui: updates,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }

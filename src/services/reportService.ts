@@ -1,36 +1,61 @@
-import { requestJson } from './httpClient'
-import { type CostEntry, type CostType } from './costService'
-
-type SerializedCostEntry = Omit<CostEntry, 'createdAt' | 'updatedAt'> & {
-  createdAt: string
-  updatedAt: string
-}
+import {
+  getDocs,
+  orderBy,
+  query,
+  type QueryConstraint,
+  Timestamp,
+  where,
+} from "firebase/firestore";
+import type { CostEntry, CostFilter } from "@/domain/entities/cost";
+import { parseDateRange } from "@/lib/dates";
+import { toCostEntry } from "@/services/converters";
+import { costEntriesCollectionRef } from "@/services/firestorePaths";
 
 export type ReportsFilter = {
-  startDate: string
-  endDate: string
-  costType: 'todos' | CostType
-}
+  /** AAAA-MM-DD */
+  startDate: string;
+  /** AAAA-MM-DD */
+  endDate: string;
+  costType: CostFilter;
+};
 
-function toCostEntry(data: SerializedCostEntry): CostEntry {
-  return {
-    ...data,
-    createdAt: new Date(data.createdAt),
-    updatedAt: new Date(data.updatedAt),
+export class InvalidDateRangeError extends Error {
+  constructor() {
+    super("Intervalo de datas inválido.");
+    this.name = "InvalidDateRangeError";
   }
 }
 
-export async function listCostsForReport(filter: ReportsFilter): Promise<CostEntry[]> {
-  const params = new URLSearchParams({
-    startDate: filter.startDate,
-    endDate: filter.endDate,
-  })
+/**
+ * Lista os lancamentos por data de criacao (inclusive) e frente opcional.
+ * Indice composto necessario: costType ASC + createdAt DESC (firestore.indexes.json).
+ */
+export async function listCostsForReport(
+  userId: string,
+  filter: ReportsFilter,
+): Promise<CostEntry[]> {
+  const range = parseDateRange(filter.startDate, filter.endDate);
 
-  if (filter.costType !== 'todos') {
-    params.set('costType', filter.costType)
+  if (!range) {
+    throw new InvalidDateRangeError();
   }
 
-  const serializedEntries = await requestJson<SerializedCostEntry[]>(`/api/reports/costs?${params.toString()}`)
+  const constraints: QueryConstraint[] = [
+    where("createdAt", ">=", Timestamp.fromDate(range.startDate)),
+    where("createdAt", "<=", Timestamp.fromDate(range.endDate)),
+  ];
 
-  return serializedEntries.map(toCostEntry)
+  if (filter.costType !== "todos") {
+    constraints.push(where("costType", "==", filter.costType));
+  }
+
+  constraints.push(orderBy("createdAt", "desc"));
+
+  const snapshot = await getDocs(
+    query(costEntriesCollectionRef(userId), ...constraints),
+  );
+
+  return snapshot.docs.map((docSnapshot) =>
+    toCostEntry(docSnapshot.id, docSnapshot.data()),
+  );
 }
