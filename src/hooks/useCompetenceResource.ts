@@ -4,15 +4,15 @@ import { toCompetenceParam } from "@/domain/rules/competence";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 
 export type CompetenceResource<T> = {
-  data: T[];
+  data: T;
   isLoading: boolean;
   error: string | null;
   /** Recarrega e devolve os dados atualizados (null em falha ou se obsoleto). */
-  reload: () => Promise<T[] | null>;
+  reload: () => Promise<T | null>;
 };
 
 /**
- * Carrega uma lista por usuario + competencia, protegido contra corridas:
+ * Carrega dados por usuario + competencia, protegido contra corridas:
  * - respostas fora de ordem (troca rapida de mes) sao descartadas;
  * - `reload` de uma competencia antiga (closure obsoleta) nao altera o estado;
  * - os dados sao limpos ao trocar de competencia (nunca exibe o mes anterior).
@@ -20,12 +20,14 @@ export type CompetenceResource<T> = {
 export function useCompetenceResource<T>(
   userId: string,
   competence: Competence,
-  fetcher: (userId: string, competence: Competence) => Promise<T[]>,
+  fetcher: (userId: string, competence: Competence) => Promise<T>,
   fallbackErrorMessage: string,
+  /** Valor exibido enquanto nao ha dados (use uma constante estavel). */
+  emptyValue: T,
 ): CompetenceResource<T> {
   const { year, month } = competence;
   const key = `${userId}|${toCompetenceParam({ year, month })}`;
-  const [data, setData] = useState<T[]>([]);
+  const [data, setData] = useState<T>(emptyValue);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeKeyRef = useRef<string | null>(null);
@@ -67,12 +69,12 @@ export function useCompetenceResource<T>(
   useEffect(() => {
     if (activeKeyRef.current !== key) {
       activeKeyRef.current = key;
-      setData([]);
+      setData(emptyValue);
       setError(null);
     }
 
     void reload();
-  }, [key, reload]);
+  }, [emptyValue, key, reload]);
 
   return { data, isLoading, error, reload };
 }

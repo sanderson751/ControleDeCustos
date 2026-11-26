@@ -1,7 +1,10 @@
 import { CopyIcon, SaveIcon } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { BudgetStatusBadge } from "@/components/budgets/BudgetStatusBadge";
-import { BUDGET_STATUS_TONE } from "@/components/budgets/budgetPresentation";
+import {
+  BUDGET_STATUS_TONE,
+  describeDraftOrigin,
+} from "@/components/budgets/budgetPresentation";
 import { CompetencePicker } from "@/components/shared/CompetencePicker";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -13,6 +16,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -22,7 +29,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { BudgetLimit } from "@/domain/entities/budget";
+import {
+  BUDGET_MODE_LABELS,
+  type BudgetLimit,
+  type BudgetMode,
+  type EffectiveBudget,
+  type MonthBudgetState,
+} from "@/domain/entities/budget";
 import {
   COST_CATEGORIES,
   COST_CATEGORY_LABELS,
@@ -32,8 +45,6 @@ import {
 } from "@/domain/entities/cost";
 import {
   buildBudgetDocId,
-  hasBudgetChanges,
-  planBudgetChanges,
   summarizeBudgets,
   validateBudgetInput,
 } from "@/domain/rules/budgetRules";
@@ -43,6 +54,14 @@ import {
   toCompetenceParam,
 } from "@/domain/rules/competence";
 import { canMutateCosts } from "@/domain/rules/permissions";
+import {
+  defaultBudgetMode,
+  futureRecurringFor,
+  type DesiredBudget,
+  hasMonthBudgetChanges,
+  planMonthBudgetChanges,
+  resolveRecurringFor,
+} from "@/domain/rules/recurringBudgetRules";
 import { useCompetenceParam } from "@/hooks/useCompetenceParam";
 import { useMonthBudgets } from "@/hooks/useMonthBudgets";
 import { useMonthCosts } from "@/hooks/useMonthCosts";
@@ -57,32 +76,34 @@ import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
 import {
-  applyBudgetChanges,
-  listMonthBudgets,
+  applyMonthBudgetChanges,
+  loadMonthBudgetState,
 } from "@/services/budgetService";
 
-type DraftValues = Record<CostCategory, string>;
+type CategoryRecord<T> = Record<CostCategory, T>;
 
-function toDraft(limits: readonly BudgetLimit[]): DraftValues {
-  const byCategory = new Map(limits.map((item) => [item.category, item.limit]));
-
+function byCategory<T>(build: (category: CostCategory) => T): CategoryRecord<T> {
   return Object.fromEntries(
-    COST_CATEGORIES.map((category) => [
-      category,
-      toMaskedCurrencyFromNumber(byCategory.get(category) ?? 0),
-    ]),
-  ) as DraftValues;
+    COST_CATEGORIES.map((category) => [category, build(category)]),
+  ) as CategoryRecord<T>;
 }
 
-/** Limites validos do rascunho (para pre-visualizar o consumo antes de salvar). */
+function valuesFrom(effective: readonly EffectiveBudget[]): CategoryRecord<string> {
+  const limits = new Map(effective.map((item) => [item.category, item.limit]));
+  return byCategory((category) =>
+    toMaskedCurrencyFromNumber(limits.get(category) ?? 0),
+  );
+}
+
+/** Limites validos do rascunho (pre-visualizacao do consumo antes de salvar). */
 function draftToLimits(
-  draft: DraftValues,
+  values: CategoryRecord<string>,
   { year, month }: Competence,
 ): BudgetLimit[] {
   return COST_CATEGORIES.flatMap((category) => {
-    const value = parseMaskedCurrencyToNumber(draft[category]);
-    return Number.isFinite(value) && value > 0
-      ? [{ id: buildBudgetDocId(year, month, category), category, year, month, limit: value }]
+    const limit = parseMaskedCurrencyToNumber(values[category]);
+    return Number.isFinite(limit) && limit > 0
+      ? [{ id: buildBudgetDocId(year, month, category), category, year, month, limit }]
       : [];
   });
 }
@@ -91,7 +112,7 @@ type BudgetEditorProps = {
   userId: string;
   competence: Competence;
   entries: readonly CostEntry[];
-  savedLimits: readonly BudgetLimit[];
+  state: MonthBudgetState;
   canEdit: boolean;
   onSaved: () => Promise<unknown>;
 };
@@ -100,24 +121,35 @@ function BudgetEditor({
   userId,
   competence,
   entries,
-  savedLimits,
+  state,
   canEdit,
   onSaved,
 }: BudgetEditorProps) {
-  const [draft, setDraft] = useState<DraftValues>(() => toDraft(savedLimits));
+  const [values, setValues] = useState(() => valuesFrom(state.effective));
+  const [modes, setModes] = useState<CategoryRecord<BudgetMode>>(() =>
+    byCategory((category) => defaultBudgetMode(category, state)),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const isBusy = isSaving || isCopying;
 
+  const recurringContext = useMemo(
+    () =>
+      byCategory((category) => ({
+        active: resolveRecurringFor(state.recurring, category, competence),
+        future: futureRecurringFor(state.recurring, category, competence),
+      })),
+    [competence, state.recurring],
+  );
+
   const summaries = useMemo(() => {
-    const byCategory = new Map(
-      summarizeBudgets(entries, draftToLimits(draft, competence)).map((item) => [
-        item.category,
-        item,
-      ]),
+    const summaryMap = new Map(
+      summarizeBudgets(entries, draftToLimits(values, competence)).map(
+        (item) => [item.category, item],
+      ),
     );
-    return COST_CATEGORIES.map((category) => byCategory.get(category)!);
-  }, [competence, draft, entries]);
+    return COST_CATEGORIES.map((category) => summaryMap.get(category)!);
+  }, [competence, entries, values]);
 
   const totalBudget = summaries.reduce((sum, item) => sum + (item.limit ?? 0), 0);
   const spentInBudgeted = summaries.reduce(
@@ -130,9 +162,9 @@ function BudgetEditor({
     setIsCopying(true);
 
     try {
-      const previousLimits = await listMonthBudgets(userId, previous);
+      const previousState = await loadMonthBudgetState(userId, previous);
 
-      if (previousLimits.length === 0) {
+      if (previousState.effective.length === 0) {
         notify(
           "warning",
           `Não há orçamentos definidos em ${formatCompetenceLong(previous)}.`,
@@ -140,10 +172,26 @@ function BudgetEditor({
         return;
       }
 
-      setDraft(toDraft(previousLimits));
+      // Categorias em "Este mes em diante" ja sao governadas pela recorrencia:
+      // a copia nao as altera (evita encerrar/mudar a recorrencia sem querer).
+      const copied = valuesFrom(previousState.effective);
+      const keptRecurring = COST_CATEGORIES.filter(
+        (category) => modes[category] === "recorrente",
+      );
+      setValues((current) =>
+        byCategory((category) =>
+          modes[category] === "recorrente" ? current[category] : copied[category],
+        ),
+      );
       notify(
         "success",
-        `Valores copiados de ${formatCompetenceLong(previous)}. Revise e salve.`,
+        `Valores copiados de ${formatCompetenceLong(previous)}. Revise e salve.${
+          keptRecurring.length
+            ? ` Categorias recorrentes mantidas: ${keptRecurring
+                .map((category) => COST_CATEGORY_LABELS[category])
+                .join(", ")}.`
+            : ""
+        }`,
       );
     } catch (copyError) {
       notify(
@@ -160,11 +208,11 @@ function BudgetEditor({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const desired: Partial<Record<CostCategory, number | null>> = {};
+    const desired: Partial<CategoryRecord<DesiredBudget>> = {};
 
     for (const category of COST_CATEGORIES) {
       const validation = validateBudgetInput(
-        parseMaskedCurrencyToNumber(draft[category]),
+        parseMaskedCurrencyToNumber(values[category]),
       );
 
       if (!validation.ok) {
@@ -175,20 +223,31 @@ function BudgetEditor({
         return;
       }
 
-      desired[category] = validation.value;
+      desired[category] = { value: validation.value, mode: modes[category] };
     }
 
-    const plan = planBudgetChanges(savedLimits, desired);
+    const plan = planMonthBudgetChanges(state, competence, desired);
 
-    if (!hasBudgetChanges(plan)) {
-      notify("warning", "Nenhuma alteração para salvar.");
+    if (plan.ignored.length) {
+      notify(
+        "warning",
+        `${plan.ignored
+          .map((category) => COST_CATEGORY_LABELS[category])
+          .join(", ")}: o orçamento recorrente não pode ser removido só neste mês. Use "Este mês em diante" para encerrá-lo.`,
+      );
+    }
+
+    if (!hasMonthBudgetChanges(plan)) {
+      if (!plan.ignored.length) {
+        notify("warning", "Nenhuma alteração para salvar.");
+      }
       return;
     }
 
     setIsSaving(true);
 
     try {
-      await applyBudgetChanges(userId, competence, plan);
+      await applyMonthBudgetChanges(userId, competence, plan);
       notify("success", "Orçamentos salvos com sucesso.");
       await onSaved();
     } catch (saveError) {
@@ -211,8 +270,8 @@ function BudgetEditor({
             <CardTitle>Limites por categoria</CardTitle>
             <CardDescription>
               Orçado {formatCurrencyBRL(totalBudget)} · gasto nas categorias
-              orçadas {formatCurrencyBRL(spentInBudgeted)}. Deixe em branco para
-              não definir limite.
+              orçadas {formatCurrencyBRL(spentInBudgeted)}. Use "Este mês em
+              diante" para repetir o limite nos próximos meses.
             </CardDescription>
           </div>
           {canEdit && (
@@ -246,18 +305,27 @@ function BudgetEditor({
               <TableRow>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Gasto no mês</TableHead>
-                <TableHead className="w-48">Orçamento</TableHead>
-                <TableHead className="w-56">Consumo</TableHead>
+                <TableHead className="w-44">Orçamento</TableHead>
+                <TableHead className="min-w-52">Aplicação</TableHead>
+                <TableHead className="w-48">Consumo</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {summaries.map((summary) => {
-                const label = COST_CATEGORY_LABELS[summary.category];
-                const inputId = `budget-${summary.category}`;
+                const category = summary.category;
+                const label = COST_CATEGORY_LABELS[category];
+                const inputId = `budget-${category}`;
+                const draftValue = parseMaskedCurrencyToNumber(values[category]);
+                const origin = describeDraftOrigin({
+                  mode: modes[category],
+                  value: Number.isFinite(draftValue) && draftValue > 0 ? draftValue : null,
+                  ...recurringContext[category],
+                  competence,
+                });
 
                 return (
-                  <TableRow key={summary.category}>
+                  <TableRow key={category}>
                     <TableCell className="font-medium">
                       {canEdit ? <label htmlFor={inputId}>{label}</label> : label}
                     </TableCell>
@@ -265,26 +333,56 @@ function BudgetEditor({
                       {formatCurrencyBRL(summary.spent)}
                     </TableCell>
                     <TableCell>
+                      <div className="space-y-1">
+                        {canEdit ? (
+                          <Input
+                            id={inputId}
+                            inputMode="numeric"
+                            placeholder="Sem limite"
+                            className="tabular-nums"
+                            value={values[category]}
+                            onChange={(event) =>
+                              setValues((current) => ({
+                                ...current,
+                                [category]: maskCurrencyInput(event.target.value),
+                              }))
+                            }
+                            disabled={isBusy}
+                          />
+                        ) : (
+                          <span className="tabular-nums">
+                            {summary.limit ? formatCurrencyBRL(summary.limit) : "—"}
+                          </span>
+                        )}
+                        {origin && (
+                          <p className="text-xs text-muted-foreground">{origin}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       {canEdit ? (
-                        <Input
-                          id={inputId}
-                          inputMode="numeric"
-                          placeholder="Sem limite"
-                          className="tabular-nums"
-                          value={draft[summary.category]}
+                        <NativeSelect
+                          aria-label={`Aplicação do orçamento de ${label}`}
+                          className="min-w-52"
+                          value={modes[category]}
                           onChange={(event) =>
-                            setDraft((current) => ({
+                            setModes((current) => ({
                               ...current,
-                              [summary.category]: maskCurrencyInput(
-                                event.target.value,
-                              ),
+                              [category]: event.target.value as BudgetMode,
                             }))
                           }
                           disabled={isBusy}
-                        />
+                        >
+                          <NativeSelectOption value="mensal">
+                            {BUDGET_MODE_LABELS.mensal}
+                          </NativeSelectOption>
+                          <NativeSelectOption value="recorrente">
+                            {BUDGET_MODE_LABELS.recorrente}
+                          </NativeSelectOption>
+                        </NativeSelect>
                       ) : (
-                        <span className="tabular-nums">
-                          {summary.limit ? formatCurrencyBRL(summary.limit) : "—"}
+                        <span className="text-sm text-muted-foreground">
+                          {summary.limit ? BUDGET_MODE_LABELS[modes[category]] : "—"}
                         </span>
                       )}
                     </TableCell>
@@ -337,17 +435,19 @@ export default function BudgetsPage() {
     }
   }, [loadError]);
 
-  // Remonta o editor quando a competencia ou os limites salvos mudam.
-  const editorKey = `${toCompetenceParam(competence)}|${budgets.limits
-    .map((item) => `${item.category}:${item.limit}`)
-    .join(",")}`;
+  // Remonta o editor quando a competencia ou os orcamentos salvos mudam.
+  const editorKey = [
+    toCompetenceParam(competence),
+    ...budgets.state.monthLimits.map((item) => `${item.id}:${item.limit}`),
+    ...budgets.state.recurring.map((item) => `${item.id}:${item.limit}`),
+  ].join("|");
 
   return (
     <section className="space-y-10" data-testid="budgets-page-screen">
       <PageHeader
         eyebrow={`Competência ${formatCompetence(competence.month, competence.year)}`}
         title="Orçamentos"
-        description="Defina quanto pode gastar em cada categoria. Alertamos ao atingir 80% e ao estourar 100%."
+        description="Defina quanto pode gastar em cada categoria — só neste mês ou deste mês em diante. Alertamos ao atingir 80% e ao estourar 100%."
         actions={
           <CompetencePicker
             competence={competence}
@@ -367,7 +467,7 @@ export default function BudgetsPage() {
           userId={userId}
           competence={competence}
           entries={costs.entries}
-          savedLimits={budgets.limits}
+          state={budgets.state}
           canEdit={canEdit}
           onSaved={budgets.reload}
         />

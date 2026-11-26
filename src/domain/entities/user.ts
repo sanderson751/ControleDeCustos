@@ -18,6 +18,7 @@ export type PermissionAction =
 export type PermissionResource =
   | "costEntries"
   | "budgetLimits"
+  | "recurringBudgets"
   | "userProfiles"
   | "settings";
 

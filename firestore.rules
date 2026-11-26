@@ -67,6 +67,19 @@ service cloud.firestore {
         && data.limit <= 1000000000;
     }
 
+    // Vigencia recorrente: limit null encerra a recorrencia a partir do mes.
+    function isValidRecurringBudget(data) {
+      return isValidCategory(data.category)
+        && data.year is int
+        && data.year >= 2000
+        && data.year <= 2100
+        && data.month is int
+        && data.month >= 1
+        && data.month <= 12
+        && (data.limit == null
+          || (data.limit is number && data.limit > 0 && data.limit <= 1000000000));
+    }
+
     // Id deterministico do orcamento: AAAA-MM-categoria (ex.: 2026-03-alimentacao).
     function expectedBudgetId(data) {
       return string(data.year) + '-' + (data.month < 10 ? '0' : '')
@@ -151,6 +164,24 @@ service cloud.firestore {
           && canWriteCosts()
           && !changedKeys().hasAny(['userId', 'year', 'month', 'category', 'createdAt'])
           && isValidBudget(request.resource.data);
+
+        allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
+      // Vigencias de orcamento recorrente (id = mes de inicio AAAA-MM-categoria).
+      match /recurringBudgets/{budgetId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidRecurringBudget(request.resource.data)
+          && budgetId == expectedBudgetId(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && !changedKeys().hasAny(['userId', 'year', 'month', 'category', 'createdAt'])
+          && isValidRecurringBudget(request.resource.data);
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }

@@ -70,3 +70,14 @@ describe("rotulos de papel", () => {
     }
   });
 });
+
+describe("orcamentos (espelho de firestore.rules)", () => {
+  it("admin/standard gravam orcamentos mensais e recorrentes; guest so le", () => {
+    for (const resource of ["budgetLimits", "recurringBudgets"] as const) {
+      expect(isPermitted("admin", resource, "edit")).toBe(true);
+      expect(isPermitted("standard", resource, "add")).toBe(true);
+      expect(isPermitted("guest", resource, "view")).toBe(true);
+      expect(isPermitted("guest", resource, "edit")).toBe(false);
+    }
+  });
+});
