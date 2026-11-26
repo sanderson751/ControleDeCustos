@@ -8,6 +8,7 @@ import {
   type CostTotals,
   type CostType,
   FALLBACK_CATEGORY,
+  MAX_DESCRIPTION_LENGTH,
   type NewCostInput,
 } from "@/domain/entities/cost";
 
@@ -25,14 +26,39 @@ export function normalizeCategory(value: unknown): CostCategory {
   return isCostCategory(value) ? value : FALLBACK_CATEGORY;
 }
 
+/** Texto para busca: minusculas, sem acentos e com espacos colapsados. */
+export function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Termo (normalizado) contido na conta OU na descricao (campos separados); vazio aceita tudo. */
+export function matchesSearch(entry: CostEntry, term: string): boolean {
+  const normalizedTerm = normalizeSearchText(term);
+
+  if (!normalizedTerm) {
+    return true;
+  }
+
+  return (
+    normalizeSearchText(entry.accountName).includes(normalizedTerm) ||
+    normalizeSearchText(entry.description).includes(normalizedTerm)
+  );
+}
+
 export function filterCosts(
   entries: readonly CostEntry[],
-  filters: { costType: CostFilter; category: CategoryFilter },
+  filters: { costType: CostFilter; category: CategoryFilter; search?: string },
 ): CostEntry[] {
   return entries.filter(
     (entry) =>
       (filters.costType === "todos" || entry.costType === filters.costType) &&
-      (filters.category === "todas" || entry.category === filters.category),
+      (filters.category === "todas" || entry.category === filters.category) &&
+      matchesSearch(entry, filters.search ?? ""),
   );
 }
 
@@ -192,6 +218,7 @@ export type CostFormValues = {
   costType: CostType;
   /** Vazio quando o usuario ainda nao selecionou. */
   category: CostCategory | "";
+  description: string;
   installmentsTotal: number;
 };
 
@@ -212,6 +239,13 @@ export function validateCostForm(values: CostFormValues): CostValidationResult {
 
   if (!isCostCategory(values.category)) {
     return { ok: false, message: "Selecione uma categoria." };
+  }
+
+  if (values.description.trim().length > MAX_DESCRIPTION_LENGTH) {
+    return {
+      ok: false,
+      message: `A descrição pode ter no máximo ${MAX_DESCRIPTION_LENGTH} caracteres.`,
+    };
   }
 
   if (

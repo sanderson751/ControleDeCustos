@@ -136,6 +136,7 @@ describe("costService", () => {
         amount: 99.9,
         costType: "variavel",
         category: "alimentacao",
+        description: "",
         installmentsTotal: 1,
         competenceYear: 2026,
         competenceMonth: 11,
@@ -151,6 +152,7 @@ describe("costService", () => {
         amount: 300,
         costType: "fixo",
         category: "educacao",
+        description: "  Inglês intensivo  ",
         installmentsTotal: 3,
       });
 
@@ -164,6 +166,8 @@ describe("costService", () => {
         [1, 2027],
       ]);
       expect(writes.every((write) => write.installmentsTotal === 3)).toBe(true);
+      // RF-02: todas as parcelas herdam a descricao (aparada).
+      expect(writes.every((write) => write.description === "Inglês intensivo")).toBe(true);
       expect(batch.commit).toHaveBeenCalledTimes(1);
     });
 
@@ -208,6 +212,7 @@ describe("costService", () => {
         amount: 50,
         costType: "variavel",
         category: "alimentacao",
+        description: "  conta de luz  ",
         installmentsTotal: 7,
       });
 
@@ -218,6 +223,7 @@ describe("costService", () => {
           amount: 50,
           costType: "variavel",
           category: "alimentacao",
+          description: "conta de luz",
           installmentsTotal: 1,
           updatedAt: "SERVER_TIMESTAMP",
         },

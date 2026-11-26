@@ -65,6 +65,7 @@ describe("CostEditPage", () => {
         amount: 120,
         costType: "variavel",
         category: "lazer",
+        description: "",
         installmentsTotal: 1,
       }),
     );
@@ -73,6 +74,27 @@ describe("CostEditPage", () => {
       "Custo atualizado com sucesso.",
     );
     expect(screen.getByTestId("location")).toHaveTextContent("/costs");
+  });
+
+  it("edita a descricao (cenario 2)", async () => {
+    mockedGet.mockResolvedValue(
+      makeCostEntry({ accountName: "Notebook", description: "parcela 1" }),
+    );
+    const { user, profile } = setup();
+
+    const description = await screen.findByLabelText("Descrição (opcional)");
+    expect(description).toHaveValue("parcela 1");
+    await user.clear(description);
+    await user.type(description, "parcela 2");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdate).toHaveBeenCalledWith(
+        profile.userId,
+        "cost-9",
+        expect.objectContaining({ description: "parcela 2" }),
+      ),
+    );
   });
 
   it("mostra parcelas apenas quando a frente e fixa", async () => {

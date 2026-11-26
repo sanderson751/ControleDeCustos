@@ -24,6 +24,7 @@ describe("exportacao de relatorios", () => {
       accountName: "Internet",
       amount: 99.9,
       costType: "fixo",
+      description: "Plano 500MB",
     });
 
     await exportPdf([entry], "2026-11-01", "2026-11-30");
@@ -35,8 +36,9 @@ describe("exportacao de relatorios", () => {
     );
     const options = autoTable.mock.calls[0][1];
     expect(options.head[0]).toContain("Competência");
+    expect(options.head[0]).toContain("Descrição");
     expect(options.body[0]).toEqual(
-      expect.arrayContaining(["Internet", "Fixo", "R$ 99,90"]),
+      expect.arrayContaining(["Internet", "Plano 500MB", "Fixo", "R$ 99,90"]),
     );
     expect(pdfInstance.save).toHaveBeenCalledWith(
       "relatorio-custos-2026-11-01-a-2026-11-30.pdf",

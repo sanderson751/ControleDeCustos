@@ -90,6 +90,7 @@ describe("CostsPage", () => {
         amount: 129.9,
         costType: "variavel",
         category: "alimentacao",
+        description: "",
         installmentsTotal: 1,
         createdAtManual: undefined,
       }),
@@ -267,6 +268,106 @@ describe("CostsPage", () => {
         "Lazer atingiu 90% do orçamento: R$ 90,00 de R$ 100,00.",
       ),
     );
+  });
+
+  it("grava a descricao e a exibe abaixo da conta (cenario 1)", async () => {
+    const { user, profile } = setup();
+    await screen.findByText(/Nenhum custo encontrado/);
+
+    await fillRequired(user, { account: "Loja", category: "lazer" });
+    await user.type(screen.getByLabelText("Descrição (opcional)"), "  Presente da Ana  ");
+    expect(screen.getByText("15/500")).toBeInTheDocument();
+    mockedList.mockResolvedValueOnce([
+      makeCostEntry({ accountName: "Loja", description: "Presente da Ana" }),
+    ]);
+    await user.click(screen.getByRole("button", { name: "Adicionar custo" }));
+
+    await waitFor(() =>
+      expect(mockedCreate).toHaveBeenCalledWith(
+        profile.userId,
+        expect.objectContaining({ description: "  Presente da Ana  " }),
+      ),
+    );
+    expect(await screen.findByText("Presente da Ana")).toBeInTheDocument();
+  });
+
+  it("bloqueia descricao acima de 500 caracteres (cenario 4)", async () => {
+    const { user } = setup();
+    await screen.findByText(/Nenhum custo encontrado/);
+
+    await fillRequired(user);
+    const description = screen.getByLabelText("Descrição (opcional)");
+    await user.click(description);
+    await user.paste("x".repeat(501));
+    await user.click(screen.getByRole("button", { name: "Adicionar custo" }));
+
+    expect(mockedCreate).not.toHaveBeenCalled();
+    expect(mockedNotify).toHaveBeenCalledWith(
+      "warning",
+      "A descrição pode ter no máximo 500 caracteres.",
+    );
+  });
+
+  it("busca por conta ou descricao sem diferenciar caixa e acentos (cenario 3)", async () => {
+    mockedList.mockResolvedValue([
+      makeCostEntry({ accountName: "Mercado", description: "feira da semana" }),
+      makeCostEntry({ accountName: "Farmácia" }),
+      makeCostEntry({ accountName: "Aluguel" }),
+    ]);
+    const { user } = setup();
+    await screen.findByText("Aluguel");
+
+    const search = screen.getByLabelText("Buscar por conta ou descrição");
+    await user.type(search, "FEIRA");
+    expect(screen.getByText("Mercado")).toBeInTheDocument();
+    expect(screen.queryByText("Farmácia")).not.toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "farmacia");
+    expect(screen.getByText("Farmácia")).toBeInTheDocument();
+    expect(screen.queryByText("Mercado")).not.toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "nada disso");
+    expect(screen.getByText(/Nenhum custo encontrado/)).toBeInTheDocument();
+  });
+
+  it("busca combina com filtros e volta para a primeira pagina", async () => {
+    mockedList.mockResolvedValue([
+      ...Array.from({ length: 11 }, (_, index) =>
+        makeCostEntry({ accountName: `Item ${index + 1}`, category: "outros" }),
+      ),
+      makeCostEntry({ accountName: "Cinema", category: "lazer", costType: "variavel" }),
+      makeCostEntry({ accountName: "Cinema IMAX", category: "lazer", costType: "fixo" }),
+    ]);
+    const { user } = setup();
+    await screen.findByText("Item 1");
+    await user.click(screen.getByRole("button", { name: "Próxima" }));
+    expect(screen.getByText(/Página 2 de 2/)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Buscar por conta ou descrição"), "cinema");
+    expect(screen.getByText(/Página 1 de 1/)).toBeInTheDocument();
+    expect(screen.getByText("Cinema IMAX")).toBeInTheDocument();
+
+    const filtro = screen.getByRole("group", { name: "Filtro de custos" });
+    await user.click(within(filtro).getByRole("button", { name: "Variáveis" }));
+    expect(screen.getByText("Cinema")).toBeInTheDocument();
+    expect(screen.queryByText("Cinema IMAX")).not.toBeInTheDocument();
+  });
+
+  it("contador da descricao considera o texto aparado e sinaliza o excesso", async () => {
+    setup();
+    const description = await screen.findByLabelText("Descrição (opcional)");
+    const user = (await import("@testing-library/user-event")).default.setup();
+
+    await user.type(description, "  abc  ");
+    expect(screen.getByText("3/500")).toBeInTheDocument();
+    expect(description).not.toHaveAttribute("aria-invalid");
+
+    await user.click(description);
+    await user.paste("x".repeat(500));
+    expect(description).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/acima do limite/)).toBeInTheDocument();
   });
 
   it("aplica filtros por frente e por categoria", async () => {

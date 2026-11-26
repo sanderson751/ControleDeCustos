@@ -76,6 +76,18 @@ describe("ReportsPage", () => {
     );
   });
 
+  it("exibe a coluna Descricao (cenario 5)", async () => {
+    mockedList.mockResolvedValue([
+      makeCostEntry({ accountName: "Loja", description: "Presente da Ana" }),
+      makeCostEntry({ accountName: "Luz" }),
+    ]);
+    setup();
+
+    expect(await screen.findByRole("cell", { name: "Presente da Ana" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Descrição" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "—" })).toBeInTheDocument();
+  });
+
   it("filtra por categoria e exibe a coluna Categoria", async () => {
     mockedList.mockResolvedValue([
       makeCostEntry({ accountName: "Cinema", category: "lazer" }),

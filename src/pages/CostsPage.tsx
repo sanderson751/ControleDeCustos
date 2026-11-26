@@ -1,4 +1,4 @@
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { describeBudgetAlert } from "@/components/budgets/budgetPresentation";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -89,6 +90,7 @@ export default function CostsPage() {
 
   const [typeFilter, setTypeFilter] = useState<CostFilter>("todos");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("todas");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pendingDelete, setPendingDelete] = useState<CostEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -110,8 +112,13 @@ export default function CostsPage() {
 
   const totals = useMemo(() => calculateTotals(entries), [entries]);
   const filteredEntries = useMemo(
-    () => filterCosts(entries, { costType: typeFilter, category: categoryFilter }),
-    [categoryFilter, entries, typeFilter],
+    () =>
+      filterCosts(entries, {
+        costType: typeFilter,
+        category: categoryFilter,
+        search,
+      }),
+    [categoryFilter, entries, search, typeFilter],
   );
   const pagination = paginate(filteredEntries, page, COSTS_PAGE_SIZE);
 
@@ -205,6 +212,23 @@ export default function CostsPage() {
                 setPage(1);
               }}
             />
+            <div className="relative sm:w-56">
+              <SearchIcon
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                aria-label="Buscar por conta ou descrição"
+                placeholder="Buscar..."
+                className="pl-9"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
             <div className="sm:w-52">
               <NativeSelect
                 aria-label="Filtrar por categoria"
@@ -255,8 +279,13 @@ export default function CostsPage() {
                 <TableBody>
                   {pagination.items.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-medium">
-                        {entry.accountName}
+                      <TableCell className="max-w-72">
+                        <span className="font-medium">{entry.accountName}</span>
+                        {entry.description && (
+                          <span className="block truncate text-xs text-muted-foreground" title={entry.description}>
+                            {entry.description}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{COST_CATEGORY_LABELS[entry.category]}</TableCell>
                       <TableCell>

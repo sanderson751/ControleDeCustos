@@ -1,6 +1,7 @@
 import {
   buildCsvContent,
   buildReportFileName,
+  neutralizeFormula,
   downloadBlob,
 } from "@/lib/reportExport";
 import { makeCostEntry } from "@/test/factories";
@@ -13,6 +14,7 @@ describe("buildCsvContent", () => {
         amount: 1234.5,
         costType: "fixo",
         category: "alimentacao",
+        description: "Compra do mês",
         installmentsTotal: 3,
         competenceMonth: 4,
         competenceYear: 2026,
@@ -23,10 +25,10 @@ describe("buildCsvContent", () => {
     expect(csv.startsWith("﻿")).toBe(true);
     const [header, row] = csv.slice(1).split("\n");
     expect(header).toBe(
-      '"Conta";"Categoria";"Frente";"Valor";"Data de criação";"Competência";"Parcelas"',
+      '"Conta";"Descrição";"Categoria";"Frente";"Valor";"Data de criação";"Competência";"Parcelas"',
     );
     expect(row).toBe(
-      '"Mercado ""Central""";"Alimentação";"Fixo";"1234,50";"02/04/2026";"04/2026";"3"',
+      '"Mercado ""Central""";"Compra do mês";"Alimentação";"Fixo";"1234,50";"02/04/2026";"04/2026";"3"',
     );
   });
 });
@@ -53,5 +55,24 @@ describe("downloadBlob", () => {
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(click).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:fake");
+  });
+});
+
+describe("neutralizeFormula (injecao de formulas no CSV)", () => {
+  it("prefixa celulas que iniciam formulas e preserva as demais", () => {
+    expect(neutralizeFormula("=HYPERLINK(\"x\")")).toBe("'=HYPERLINK(\"x\")");
+    expect(neutralizeFormula("+1")).toBe("'+1");
+    expect(neutralizeFormula("-1")).toBe("'-1");
+    expect(neutralizeFormula("@SUM")).toBe("'@SUM");
+    expect(neutralizeFormula("\tx")).toBe("'\tx");
+    expect(neutralizeFormula("Mercado")).toBe("Mercado");
+    expect(neutralizeFormula("1234,50")).toBe("1234,50");
+  });
+
+  it("aplica a neutralizacao no CSV gerado", () => {
+    const csv = buildCsvContent([
+      makeCostEntry({ accountName: "Loja", description: "=HYPERLINK(\"http://x\")" }),
+    ]);
+    expect(csv).toContain('"\'=HYPERLINK(""http://x"")"');
   });
 });

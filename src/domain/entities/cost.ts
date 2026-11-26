@@ -42,6 +42,8 @@ export type CostEntry = {
   amount: number;
   costType: CostType;
   category: CostCategory;
+  /** Observacao livre (vazia quando ausente). */
+  description: string;
   installmentsTotal: number;
   competenceYear: number;
   competenceMonth: number;
@@ -54,6 +56,7 @@ export type NewCostInput = {
   amount: number;
   costType: CostType;
   category: CostCategory;
+  description?: string;
   installmentsTotal?: number;
   /** Data de criacao informada manualmente. Quando ausente usa-se o horario do servidor. */
   createdAtManual?: Date;
@@ -64,6 +67,7 @@ export type UpdateCostInput = {
   amount: number;
   costType: CostType;
   category: CostCategory;
+  description: string;
   installmentsTotal: number;
 };
 
@@ -84,3 +88,6 @@ export const COST_TYPE_LABELS: Record<CostType, string> = {
   fixo: "Fixo",
   variavel: "Variável",
 };
+
+/** Tamanho maximo da descricao livre (espelhado em firestore.rules). */
+export const MAX_DESCRIPTION_LENGTH = 500;

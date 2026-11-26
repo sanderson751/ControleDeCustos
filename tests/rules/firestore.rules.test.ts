@@ -492,3 +492,43 @@ describe("consultas da evolucao mensal (in por ano)", () => {
     );
   });
 });
+
+describe("descricao do lancamento", () => {
+  it("aceita descricao opcional ate 500 caracteres e recusa maior ou nao-texto", async () => {
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/costEntries/d1"), { ...validCost, description: "" }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/costEntries/d2"), {
+        ...validCost,
+        description: "a".repeat(500),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/costEntries/d3"), {
+        ...validCost,
+        description: "a".repeat(501),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/costEntries/d4"), { ...validCost, description: 42 }),
+    );
+    // Legado sem o campo continua valido (validCost nao tem description).
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/costEntries/d5"), validCost));
+  });
+});
+
+describe("edicao de lancamento legado sem descricao", () => {
+  it("update incluindo categoria e descricao vazia e aceito; descricao longa e negada", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const { category: _ignored, ...legacy } = validCost;
+      await setDoc(doc(context.firestore(), "users/ana/costEntries/sem-desc"), legacy);
+    });
+    const ref = doc(as("ana"), "users/ana/costEntries/sem-desc");
+
+    await assertSucceeds(
+      updateDoc(ref, { category: "outros", description: "", updatedAt: serverTimestamp() }),
+    );
+    await assertFails(updateDoc(ref, { description: "x".repeat(501) }));
+  });
+});

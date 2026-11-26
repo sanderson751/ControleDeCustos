@@ -2,6 +2,7 @@ import type { CostFormState } from "@/components/costs/costFormState";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -10,9 +11,11 @@ import {
   COST_CATEGORIES,
   COST_CATEGORY_LABELS,
   type CostCategory,
+  MAX_DESCRIPTION_LENGTH,
 } from "@/domain/entities/cost";
 import { MAX_INSTALLMENTS } from "@/domain/rules/costRules";
 import { maskCurrencyInput } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 const COST_TYPE_OPTIONS = [
   { value: "fixo", label: "Fixo" },
@@ -33,6 +36,9 @@ export function CostFormFields({
   onChange,
   disabled,
 }: CostFormFieldsProps) {
+  // Conta o texto aparado: e o mesmo valor validado, gravado e medido pelas regras.
+  const descriptionLength = value.description.trim().length;
+  const isDescriptionTooLong = descriptionLength > MAX_DESCRIPTION_LENGTH;
   const update = (patch: Partial<CostFormState>) =>
     onChange({ ...value, ...patch });
 
@@ -96,6 +102,34 @@ export function CostFormFields({
           value={value.costType}
           options={COST_TYPE_OPTIONS}
           onChange={(costType) => update({ costType })}
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="space-y-2 md:col-span-full">
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor={`${idPrefix}-description`}>Descrição (opcional)</Label>
+          <span
+            id={`${idPrefix}-description-count`}
+            className={cn(
+              "text-xs tabular-nums",
+              isDescriptionTooLong
+                ? "font-medium text-destructive"
+                : "text-muted-foreground",
+            )}
+          >
+            {`${descriptionLength}/${MAX_DESCRIPTION_LENGTH}`}
+            {isDescriptionTooLong && " · acima do limite"}
+          </span>
+        </div>
+        <Textarea
+          id={`${idPrefix}-description`}
+          value={value.description}
+          onChange={(event) => update({ description: event.target.value })}
+          placeholder="Ex.: presente de aniversário, parcela do notebook..."
+          rows={2}
+          aria-describedby={`${idPrefix}-description-count`}
+          aria-invalid={isDescriptionTooLong || undefined}
           disabled={disabled}
         />
       </div>

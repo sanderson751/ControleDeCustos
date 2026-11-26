@@ -296,6 +296,7 @@ export default function ReportsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Conta</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Frente</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
@@ -309,6 +310,9 @@ export default function ReportsPage() {
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium">
                       {entry.accountName}
+                    </TableCell>
+                    <TableCell className="max-w-64 break-words whitespace-normal text-muted-foreground">
+                      {entry.description || "—"}
                     </TableCell>
                     <TableCell>{COST_CATEGORY_LABELS[entry.category]}</TableCell>
                     <TableCell>

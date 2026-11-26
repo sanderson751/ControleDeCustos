@@ -13,6 +13,7 @@ export type CostFormState = {
   costType: CostType;
   /** Vazio ate o usuario escolher (categoria e obrigatoria). */
   category: CostCategory | "";
+  description: string;
   installmentsTotal: string;
 };
 
@@ -21,6 +22,7 @@ export const EMPTY_COST_FORM: CostFormState = {
   amount: "",
   costType: "variavel",
   category: "",
+  description: "",
   installmentsTotal: "1",
 };
 
@@ -30,6 +32,7 @@ export function toCostFormValues(state: CostFormState): CostFormValues {
     amount: parseMaskedCurrencyToNumber(state.amount),
     costType: state.costType,
     category: state.category,
+    description: state.description,
     installmentsTotal:
       state.costType === "fixo" ? Number(state.installmentsTotal) : 1,
   };
@@ -41,6 +44,7 @@ export function fromCostEntry(entry: CostEntry): CostFormState {
     amount: toMaskedCurrencyFromNumber(entry.amount),
     costType: entry.costType,
     category: entry.category,
+    description: entry.description,
     installmentsTotal: String(entry.installmentsTotal),
   };
 }
