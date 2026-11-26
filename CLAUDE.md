@@ -88,7 +88,7 @@ Ao alterar `firestore.rules`, `permissions.ts` ou o modelo de dados: atualize
 ```
 users/{uid}                        # perfil + role (admin|standard|guest)
 users/{uid}/settings/profile       # ui.theme, ui.sidebarCollapsed, currency, locale
-users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, installmentsTotal,
+users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
 users/{uid}/budgetLimits/{AAAA-MM-categoria}     # orçamento de um único mês (exceção)
 users/{uid}/recurringBudgets/{AAAA-MM-categoria} # vigência recorrente a partir do mês (limit null = encerra)

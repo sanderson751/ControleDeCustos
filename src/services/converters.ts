@@ -38,6 +38,7 @@ export function toCostEntry(id: string, data: DocumentData): CostEntry {
     amount: Number(data.amount ?? 0),
     costType: data.costType === "fixo" ? "fixo" : "variavel",
     category: normalizeCategory(data.category),
+    description: typeof data.description === "string" ? data.description : "",
     installmentsTotal: Number(data.installmentsTotal ?? 1),
     competenceYear: Number(data.competenceYear ?? now.getFullYear()),
     competenceMonth: Number(data.competenceMonth ?? now.getMonth() + 1),

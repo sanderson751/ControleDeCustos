@@ -91,6 +91,8 @@ service cloud.firestore {
         && data.accountName is string
         && data.accountName.size() > 0
         && data.accountName.size() <= 200
+        && data.get('description', '') is string
+        && data.get('description', '').size() <= 500
         && data.amount is number
         && data.amount > 0
         && data.costType in ['fixo', 'variavel']

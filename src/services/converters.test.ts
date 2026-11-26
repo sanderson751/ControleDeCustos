@@ -46,3 +46,11 @@ describe("toRecurringBudget", () => {
     expect(toRecurringBudget("x", { category: "lazer", year: 2026, month: 1, limit: -5 }).limit).toBeNull();
   });
 });
+
+describe("descricao no lancamento", () => {
+  it("le descricao existente e trata ausente (legado) como vazia", () => {
+    expect(toCostEntry("x", { description: "nota" }).description).toBe("nota");
+    expect(toCostEntry("x", {}).description).toBe("");
+    expect(toCostEntry("x", { description: 42 }).description).toBe("");
+  });
+});

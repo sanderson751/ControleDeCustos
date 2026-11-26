@@ -13,6 +13,7 @@ export function makeCostEntry(overrides: Partial<CostEntry> = {}): CostEntry {
     amount: 100,
     costType: "variavel",
     category: "outros",
+    description: "",
     installmentsTotal: 1,
     competenceYear: 2026,
     competenceMonth: 11,

@@ -82,6 +82,7 @@ export async function createCostEntry(
       amount: Number(input.amount),
       costType: input.costType,
       category: input.category,
+      description: (input.description ?? "").trim(),
       installmentsTotal,
       competenceYear: installment.competenceYear,
       competenceMonth: installment.competenceMonth,
@@ -105,6 +106,7 @@ export async function updateCostEntry(
     amount: Number(updates.amount),
     costType: updates.costType,
     category: updates.category,
+    description: updates.description.trim(),
     installmentsTotal: normalizeInstallments(
       updates.costType,
       updates.installmentsTotal,

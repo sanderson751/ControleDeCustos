@@ -8,6 +8,7 @@ import { formatCompetence, formatDateBR } from "@/lib/dates";
 
 export const REPORT_HEADER = [
   "Conta",
+  "Descrição",
   "Categoria",
   "Frente",
   "Valor",
@@ -19,6 +20,7 @@ export const REPORT_HEADER = [
 function toRow(entry: CostEntry, amount: string): string[] {
   return [
     entry.accountName,
+    entry.description,
     COST_CATEGORY_LABELS[entry.category],
     COST_TYPE_LABELS[entry.costType],
     amount,
@@ -26,6 +28,14 @@ function toRow(entry: CostEntry, amount: string): string[] {
     formatCompetence(entry.competenceMonth, entry.competenceYear),
     String(entry.installmentsTotal),
   ];
+}
+
+/**
+ * Evita injecao de formulas no Excel/Sheets: celulas iniciadas por = + - @
+ * (ou tab/CR) recebem um apostrofo, que as torna texto literal.
+ */
+export function neutralizeFormula(cell: string): string {
+  return /^[=+\-@\t\r]/.test(cell) ? `'${cell}` : cell;
 }
 
 /** CSV separado por ";" (padrao Excel pt-BR) com BOM para acentuacao correta. */
@@ -41,7 +51,7 @@ export function buildCsvContent(entries: readonly CostEntry[]): string {
     "﻿" +
     rows
       .map((row) =>
-        row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(";"),
+        row.map((cell) => `"${neutralizeFormula(cell).replaceAll('"', '""')}"`).join(";"),
       )
       .join("\n")
   );

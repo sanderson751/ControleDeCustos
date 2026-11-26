@@ -7,6 +7,8 @@ import {
   filterByCostType,
   filterCosts,
   isCostCategory,
+  matchesSearch,
+  normalizeSearchText,
   MAX_INSTALLMENTS,
   normalizeCategory,
   normalizeInstallments,
@@ -231,6 +233,7 @@ describe("validateCostForm", () => {
     amount: 100,
     costType: "fixo",
     category: "moradia",
+    description: "",
     installmentsTotal: 1,
   };
 
@@ -294,6 +297,50 @@ describe("paginate", () => {
       items: [],
       currentPage: 1,
       totalPages: 1,
+    });
+  });
+});
+
+describe("busca e descricao", () => {
+  it("normaliza o texto de busca (caixa, acentos e espacos)", () => {
+    expect(normalizeSearchText("  Farmácia   SÃO  João ")).toBe("farmacia sao joao");
+  });
+
+  it("busca na conta ou na descricao; termo vazio aceita tudo", () => {
+    const entry = makeCostEntry({ accountName: "Mercado", description: "Feira da semana" });
+    expect(matchesSearch(entry, "FEIRA")).toBe(true);
+    // Conta e descricao sao buscadas separadamente (nao casa termo que atravessa os dois).
+    expect(matchesSearch(entry, "mercado feira")).toBe(false);
+    expect(matchesSearch(entry, "o f")).toBe(false);
+    expect(matchesSearch(entry, "da sem")).toBe(true);
+    expect(matchesSearch(entry, "farmacia")).toBe(false);
+    expect(matchesSearch(entry, "   ")).toBe(true);
+  });
+
+  it("filterCosts combina busca com frente e categoria", () => {
+    const entries = [
+      makeCostEntry({ id: "a", accountName: "Cinema", category: "lazer" }),
+      makeCostEntry({ id: "b", accountName: "Cinema", category: "outros" }),
+    ];
+    expect(
+      filterCosts(entries, { costType: "todos", category: "lazer", search: "cine" }).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["a"]);
+  });
+
+  it("valida o tamanho da descricao (espacos nas pontas nao contam)", () => {
+    const base = {
+      accountName: "X",
+      amount: 1,
+      costType: "variavel" as const,
+      category: "outros" as const,
+      installmentsTotal: 1,
+    };
+    expect(validateCostForm({ ...base, description: `${"a".repeat(500)}   ` }).ok).toBe(true);
+    expect(validateCostForm({ ...base, description: "a".repeat(501) })).toEqual({
+      ok: false,
+      message: "A descrição pode ter no máximo 500 caracteres.",
     });
   });
 });
