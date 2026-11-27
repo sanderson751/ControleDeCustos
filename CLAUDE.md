@@ -96,7 +96,7 @@ users/{uid}/recurringCosts/{id}     # recorrencia mensal + cursor lastGenerated;
 users/{uid}/savingsGoals/{id}       # meta: name, targetAmount, deadlineYear/Month (opcional)
 users/{uid}/goalContributions/{id}  # movimentacao imutavel: goalId, amount (+deposito/-retirada), date, note
 users/{uid}/groceryProducts/{id}    # catalogo de mercado: name, unit, lastUnitPrice/previousUnitPrice, intervalos
-users/{uid}/groceryLists/{id}       # lista: items[], status aberta|concluida (concluida = somente leitura), paidTotal
+users/{uid}/groceryLists/{id}       # lista: items{itemId} (mapa, grava por item), status aberta|concluida (concluida = somente leitura), paidTotal
 users/{uid}/groceryPurchases/{id}   # compra imutavel: itens com preco pago, total, costEntryId, receiptKey
 users/{uid}/groceryReceiptKeys/{key} # comanda ja lancada (id = chave NFC-e/hash): impede lancar duas vezes
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal, recurringId?,

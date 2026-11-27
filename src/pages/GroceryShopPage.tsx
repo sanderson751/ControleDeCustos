@@ -29,7 +29,7 @@ export default function GroceryShopPage() {
   const { products, lists, isLoading, error } = useGroceryData(userId);
   const [isCompleting, setIsCompleting] = useState(false);
   const list = lists.find((item) => item.id === listId) ?? null;
-  const { items, update } = useOptimisticListItems(userId, list?.id ?? null, list?.items);
+  const { items, update } = useOptimisticListItems(userId, list);
   const editable = canMutateCosts(profile.role) && list?.status === "aberta";
   const online = useOnlineStatus();
   const wakeLock = useWakeLock(editable);

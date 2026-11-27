@@ -1,6 +1,16 @@
 import { listDocuments, setDocument } from "./support/emulators";
 import { expect, login, test } from "./support/app";
 
+type StoredItem = { name: string; checked: boolean; order: number };
+
+/** Itens gravados como mapa items.{itemId}, na ordem da lista. */
+async function storedItems(path: string) {
+  const [list] = await listDocuments(path);
+  return Object.values(list.items as Record<string, StoredItem>)
+    .sort((left, right) => left.order - right.order)
+    .map((item) => [item.name, item.checked]);
+}
+
 test.describe("lista de mercado", () => {
   test("lista, conclusão com total e preços, lançamento e previsão na próxima lista", async ({
     page,
@@ -182,16 +192,64 @@ test.describe("lista de mercado — variação, reposição e modo mercado", () 
     await expect(page.getByText(/Sem conexão/)).toHaveCount(0);
 
     await expect
-      .poll(
-        async () => {
-          const [list] = await listDocuments(`users/${user.uid}/groceryLists`);
-          return (list.items as Array<{ name: string; checked: boolean }>).map((item) => [item.name, item.checked]);
-        },
-        { timeout: 90_000 },
-      )
+      .poll(() => storedItems(`users/${user.uid}/groceryLists`), { timeout: 90_000 })
       .toEqual([
         ["Arroz 5kg", true],
         ["Leite", true],
       ]);
+  });
+
+  test("dois aparelhos marcando itens diferentes, um sem sinal: nenhuma marcação se perde", async ({
+    browser,
+    page,
+    seedUser,
+  }) => {
+    test.setTimeout(180_000);
+    const user = await seedUser("standard");
+    const item = (productId: string, name: string, order: number) => ({
+      productId, name, quantity: 1, checked: false, order,
+    });
+    await setDocument(`users/${user.uid}/groceryLists/l1`, {
+      userId: user.uid,
+      name: "Feira",
+      status: "aberta",
+      items: { i1: item("arroz", "Arroz 5kg", 0), i2: item("cafe", "Café", 1) },
+      purchaseId: null,
+      paidTotal: null,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Contexto novo nao herda o `use` da configuracao.
+    const { baseURL, locale, timezoneId } = test.info().project.use;
+    const other = await browser.newContext({ baseURL, locale, timezoneId });
+    const otherPage = await other.newPage();
+    try {
+      for (const current of [page, otherPage]) {
+        await login(current, user);
+        await current.goto("/grocery/l1/shop");
+        await expect(current.getByRole("checkbox", { name: /Café/ })).toBeVisible();
+      }
+
+      // Um aparelho sem sinal marca o arroz; o outro, online, marca o café.
+      await page.context().setOffline(true);
+      await page.getByRole("checkbox", { name: /Arroz 5kg/ }).click();
+      await expect(page.getByRole("checkbox", { name: /Arroz 5kg/ })).toBeChecked();
+      await otherPage.getByRole("checkbox", { name: /Café/ }).click();
+      await expect
+        .poll(() => storedItems(`users/${user.uid}/groceryLists`), { timeout: 30_000 })
+        .toEqual([["Arroz 5kg", false], ["Café", true]]);
+
+      // A conexão volta: a marcação feita sem sinal se soma, sem desfazer a outra.
+      await page.context().setOffline(false);
+      await expect
+        .poll(() => storedItems(`users/${user.uid}/groceryLists`), { timeout: 90_000 })
+        .toEqual([["Arroz 5kg", true], ["Café", true]]);
+      await expect(otherPage.getByRole("checkbox", { name: /Arroz 5kg/ })).toBeChecked({ timeout: 30_000 });
+      await expect(page.getByRole("checkbox", { name: /Café/ })).toBeChecked({ timeout: 30_000 });
+    } finally {
+      await other.close();
+    }
   });
 });

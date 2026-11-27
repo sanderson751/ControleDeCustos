@@ -138,7 +138,7 @@ describe("GroceryListPage", () => {
     await waitFor(() =>
       expect(updateListItems).toHaveBeenCalledWith("uid-standard", "l1", [
         expect.objectContaining({ productId: "arroz", name: "Arroz 5kg", quantity: 3, checked: false }),
-      ]),
+      ], expect.any(Array), []),
     );
     expect(createProduct).not.toHaveBeenCalled();
 
@@ -153,7 +153,7 @@ describe("GroceryListPage", () => {
     );
     expect(updateListItems).toHaveBeenLastCalledWith("uid-standard", "l1", [
       expect.objectContaining({ productId: "novo", name: "Carne moída", quantity: 1.5 }),
-    ]);
+    ], expect.any(Array), []);
   });
 
   it("valida quantidade invalida para unidade", async () => {
@@ -176,7 +176,7 @@ describe("GroceryListPage", () => {
     expect(updateListItems).toHaveBeenLastCalledWith("uid-standard", "l1", [
       LIST.items[0],
       { ...LIST.items[1], checked: true },
-    ]);
+    ], expect.any(Array), []);
 
     const quantity = within(row("Arroz 5kg")).getByLabelText("Quantidade de Arroz 5kg");
     await user.clear(quantity);
@@ -184,10 +184,10 @@ describe("GroceryListPage", () => {
     expect(updateListItems).toHaveBeenLastCalledWith("uid-standard", "l1", [
       { ...LIST.items[0], quantity: 4 },
       LIST.items[1],
-    ]);
+    ], expect.any(Array), []);
 
     await user.click(within(row("Café")).getByRole("button", { name: "Remover Café" }));
-    expect(updateListItems).toHaveBeenLastCalledWith("uid-standard", "l1", [LIST.items[0]]);
+    expect(updateListItems).toHaveBeenLastCalledWith("uid-standard", "l1", [LIST.items[0]], expect.any(Array), []);
   });
 
   it("conclui a compra com total e preco pago por item (cenario 2)", async () => {
@@ -301,7 +301,7 @@ describe("GroceryListPage - regressoes da revisao", () => {
     expect(updateListItems).toHaveBeenLastCalledWith("uid-standard", "l1", [
       { ...LIST.items[0], quantity: 3 },
       { ...LIST.items[1], checked: true },
-    ]);
+    ], expect.any(Array), []);
   });
 
   it("duplo toque no mesmo item alterna corretamente", async () => {
@@ -403,6 +403,7 @@ describe("GroceryListPage - inteligencia", () => {
       expect.any(String),
       "l1",
       expect.arrayContaining([expect.objectContaining({ productId: "leite", quantity: 1 })]),
+      expect.any(Array), [],
     );
     expect(mockedNotify).toHaveBeenCalledWith("success", "Leite adicionado à lista.");
     // Ja na lista: some das sugestoes.

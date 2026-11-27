@@ -172,7 +172,7 @@ export function toGroceryProduct(id: string, data: DocumentData): GroceryProduct
   };
 }
 
-function toGroceryListItem(raw: unknown, index: number): GroceryListItem | null {
+function toGroceryListItem(raw: unknown, fallbackId: string): GroceryListItem | null {
   if (!raw || typeof raw !== "object") {
     return null;
   }
@@ -185,7 +185,7 @@ function toGroceryListItem(raw: unknown, index: number): GroceryListItem | null 
   }
 
   return {
-    id: typeof item.id === "string" && item.id ? item.id : `item-${index}`,
+    id: typeof item.id === "string" && item.id ? item.id : fallbackId,
     productId: item.productId,
     name: String(item.name ?? ""),
     quantity,
@@ -193,16 +193,57 @@ function toGroceryListItem(raw: unknown, index: number): GroceryListItem | null 
   };
 }
 
+/**
+ * Itens no formato atual (mapa `items.{itemId}` com `order`) ou no antigo
+ * (array). Item incompleto (ex.: removido por um aparelho enquanto outro
+ * marcava) e ignorado.
+ */
+function toGroceryListItems(raw: unknown): { items: GroceryListItem[]; staleItemIds: string[] } {
+  if (Array.isArray(raw)) {
+    return {
+      items: raw
+        .map((item: unknown, index: number) => toGroceryListItem(item, `item-${index}`))
+        .filter((item): item is GroceryListItem => item !== null),
+      staleItemIds: [],
+    };
+  }
+
+  if (!raw || typeof raw !== "object") return { items: [], staleItemIds: [] };
+
+  const entries: Array<{ item: GroceryListItem; order: number }> = [];
+  const staleItemIds: string[] = [];
+
+  for (const [itemId, value] of Object.entries(raw as Record<string, unknown>)) {
+    const item = toGroceryListItem(
+      value && typeof value === "object" ? { ...value, id: itemId } : null,
+      itemId,
+    );
+    if (!item) {
+      staleItemIds.push(itemId);
+      continue;
+    }
+    const order = Number((value as { order?: unknown }).order);
+    entries.push({ item, order: Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER });
+  }
+
+  return {
+    items: entries
+      .sort((left, right) => left.order - right.order || left.item.id.localeCompare(right.item.id))
+      .map((entry) => entry.item),
+    staleItemIds,
+  };
+}
+
 export function toGroceryList(id: string, data: DocumentData): GroceryList {
-  const items = Array.isArray(data.items) ? data.items : [];
+  const { items, staleItemIds } = toGroceryListItems(data.items);
 
   return {
     id,
     name: String(data.name ?? ""),
     status: data.status === "concluida" ? "concluida" : "aberta",
-    items: items
-      .map((item: unknown, index: number) => toGroceryListItem(item, index))
-      .filter((item: GroceryListItem | null): item is GroceryListItem => item !== null),
+    items,
+    legacyItems: Array.isArray(data.items),
+    staleItemIds,
     purchaseId: typeof data.purchaseId === "string" ? data.purchaseId : null,
     paidTotal: typeof data.paidTotal === "number" && data.paidTotal > 0 ? data.paidTotal : null,
     createdAt: toDate(data.createdAt),

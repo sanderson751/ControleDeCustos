@@ -90,7 +90,7 @@ describe("GroceryShopPage", () => {
     expect(updateListItems).toHaveBeenLastCalledWith(expect.any(String), "l1", [
       expect.objectContaining({ id: "i1", checked: true }),
       expect.objectContaining({ id: "i2", checked: false }),
-    ]);
+    ], expect.any(Array), []);
 
     await user.click(screen.getByRole("checkbox", { name: /Café/ }));
     expect(summary()).toHaveTextContent("2 de 2 itens");

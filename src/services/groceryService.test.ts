@@ -2,6 +2,7 @@ import * as firestore from "firebase/firestore";
 import type { GroceryList } from "@/domain/entities/grocery";
 import {
   completeList,
+  convertListItems,
   createList,
   createProduct,
   deleteList,
@@ -31,6 +32,17 @@ const LIST: GroceryList = {
   createdAt: NOW,
   completedAt: null,
 };
+
+/** Ultimo updateDoc com caminhos: pares [caminho, valor]. */
+function lastWrite() {
+  const [ref, ...pairs] = mocked.updateDoc.mock.calls.at(-1) as unknown as [{ path: string }, ...unknown[]];
+  expect(ref.path).toBe("users/uid-1/groceryLists/l1");
+  const written: Array<[string, unknown]> = [];
+  for (let index = 0; index < pairs.length; index += 2) {
+    written.push([(pairs[index] as { segments: string[] }).segments.join("."), pairs[index + 1]]);
+  }
+  return written;
+}
 
 function emitOnce(docs: Array<{ id: string; data: Record<string, unknown> }>) {
   mocked.onSnapshot.mockImplementationOnce(((_ref: unknown, next: (s: unknown) => void) => {
@@ -82,6 +94,37 @@ describe("groceryService", () => {
     expect(lists[0].items).toEqual([
       { id: "i1", productId: "p1", name: "Arroz", quantity: 2, checked: false },
     ]);
+    expect(lists[0].legacyItems).toBe(true);
+  });
+
+  it("le itens no formato de mapa pela ordem, ignorando item incompleto", () => {
+    const onData = vi.fn();
+    emitOnce([
+      {
+        id: "m",
+        data: {
+          name: "Mapa",
+          status: "aberta",
+          createdAt: timestamp(NOW),
+          items: {
+            b: { productId: "p2", name: "Café", quantity: 1, checked: true, order: 1800000000000 },
+            a: { productId: "p1", name: "Arroz", quantity: 2, checked: false, order: 0 },
+            // Removido em um aparelho enquanto outro marcava: sobra so o campo marcado.
+            c: { checked: true },
+          },
+        },
+      },
+    ]);
+
+    subscribeToLists("uid-1", onData, vi.fn());
+
+    const [[list]] = onData.mock.calls[0];
+    expect(list.legacyItems).toBe(false);
+    expect(list.staleItemIds).toEqual(["c"]);
+    expect(list.items).toEqual([
+      { id: "a", productId: "p1", name: "Arroz", quantity: 2, checked: false },
+      { id: "b", productId: "p2", name: "Café", quantity: 1, checked: true },
+    ]);
   });
 
   it("cria produto sem historico e lista aberta com id imediato (sem esperar o servidor)", async () => {
@@ -105,16 +148,67 @@ describe("groceryService", () => {
     const list = createList("uid-1", { name: "Feira", items: LIST.items });
     expect(mocked.setDoc).toHaveBeenLastCalledWith(
       expect.objectContaining({ path: `users/uid-1/groceryLists/${list.id}` }),
-      expect.objectContaining({ status: "aberta", purchaseId: null, paidTotal: null, items: LIST.items }),
+      expect.objectContaining({
+        status: "aberta",
+        purchaseId: null,
+        paidTotal: null,
+        items: { i1: { productId: "arroz", name: "Arroz", quantity: 2, checked: true, order: 0 } },
+      }),
     );
   });
 
-  it("atualiza itens e exclui lista", async () => {
-    await updateListItems("uid-1", "l1", LIST.items);
-    expect(mocked.updateDoc).toHaveBeenCalledWith(
+  it("grava so os campos alterados de cada item (edicoes simultaneas nao se apagam)", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1800000000000);
+    const previous = [
+      ...LIST.items,
+      { id: "i2", productId: "cafe", name: "Café", quantity: 1, checked: false },
+    ];
+    const next = [
+      { ...previous[0], quantity: 3 },
+      { id: "i3", productId: "leite", name: "Leite", quantity: 6, checked: false },
+    ];
+
+    await updateListItems("uid-1", "l1", next, previous, ["x9"]);
+
+    expect(lastWrite()).toEqual([
+      ["items.i1.quantity", 3],
+      ["items.i3", { productId: "leite", name: "Leite", quantity: 6, checked: false, order: 1800000000000 }],
+      ["items.i2", "DELETE_FIELD"],
+      // Sobra incompleta de remocao concorrente.
+      ["items.x9", "DELETE_FIELD"],
+      ["updatedAt", "SERVER_TIMESTAMP"],
+    ]);
+
+    // Mesmo milissegundo: a proxima inclusao vem depois, sem empate.
+    await updateListItems("uid-1", "l1", [...next, { id: "i4", productId: "pao", name: "Pão", quantity: 1, checked: false }], next);
+    expect(lastWrite()[0]).toEqual(["items.i4", expect.objectContaining({ order: 1800000000001 })]);
+    vi.mocked(Date.now).mockRestore();
+  });
+
+  it("sem mudanca nao grava", async () => {
+    mocked.updateDoc.mockClear();
+    await updateListItems("uid-1", "l1", LIST.items, LIST.items);
+    expect(mocked.updateDoc).not.toHaveBeenCalled();
+  });
+
+  it("converte lista antiga item a item (preserva o que outro aparelho ja gravou no mapa)", async () => {
+    const previous = [...LIST.items, { id: "i2", productId: "cafe", name: "Café", quantity: 1, checked: false }];
+    await convertListItems("uid-1", "l1", LIST.items, previous);
+    expect(lastWrite()).toEqual([
+      ["items.i1", { productId: "arroz", name: "Arroz", quantity: 2, checked: true, order: 0 }],
+      ["items.i2", "DELETE_FIELD"],
+      ["updatedAt", "SERVER_TIMESTAMP"],
+    ]);
+
+    // Lista esvaziada: o mapa vazio substitui o array.
+    await convertListItems("uid-1", "l1", [], previous);
+    expect(mocked.updateDoc).toHaveBeenLastCalledWith(
       expect.objectContaining({ path: "users/uid-1/groceryLists/l1" }),
-      { items: LIST.items, updatedAt: "SERVER_TIMESTAMP" },
+      { items: {}, updatedAt: "SERVER_TIMESTAMP" },
     );
+  });
+
+  it("exclui lista", async () => {
     await deleteList("uid-1", "l1");
     expect(mocked.deleteDoc).toHaveBeenCalledWith(expect.objectContaining({ path: "users/uid-1/groceryLists/l1" }));
   });
