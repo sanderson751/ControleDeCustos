@@ -54,6 +54,7 @@ import {
   type ParsedStatement,
 } from "@/domain/entities/statementImport";
 import { selectableCategories } from "@/domain/rules/categoryRules";
+import { isOfx, parseOfx } from "@/domain/rules/ofxParser";
 import { canMutateCosts } from "@/domain/rules/permissions";
 import {
   buildCategoryHistory,
@@ -80,7 +81,7 @@ import { ROUTES, withCompetence } from "@/routes/navigation";
 import { listCostsByCompetenceRange } from "@/services/costService";
 import { ImportPartialError, importCostEntries } from "@/services/importService";
 
-type LoadedFile = ParsedStatement & { name: string };
+type LoadedFile = ParsedStatement & { name: string; format: "csv" | "ofx" };
 
 const SIGN_LABELS: Record<ExpenseSign, string> = {
   negativo: "Valores negativos (extrato de conta)",
@@ -348,12 +349,18 @@ export default function ImportPage() {
     setIsReading(true);
 
     try {
-      const parsed = parseStatement(
-        decodeStatementFile(await readFileAsArrayBuffer(picked)),
-      );
+      const text = decodeStatementFile(await readFileAsArrayBuffer(picked));
+      const format = isOfx(text) ? "ofx" : "csv";
+      const ofx = format === "ofx" ? parseOfx(text) : null;
+      const parsed = ofx ?? parseStatement(text);
 
       if (parsed.table.length === 0) {
-        notify("warning", "O arquivo está vazio.");
+        notify(
+          "warning",
+          format === "ofx"
+            ? "Nenhuma transação encontrada no arquivo OFX."
+            : "O arquivo está vazio.",
+        );
         return;
       }
 
@@ -362,14 +369,31 @@ export default function ImportPage() {
       if (!detected) {
         notify(
           "warning",
-          "Não encontramos colunas de data e valor neste arquivo. Verifique se é o CSV do extrato ou da fatura.",
+          ofx
+            ? "As transações do arquivo OFX não têm datas ou valores válidos."
+            : "Não encontramos colunas de data e valor neste arquivo. Verifique se é o CSV do extrato ou da fatura.",
         );
         return;
       }
 
-      setFile({ ...parsed, name: picked.name });
+      setFile({ ...parsed, name: picked.name, format });
       setMapping(detected);
-      setSign(detectExpenseSign(parsed.table, detected));
+      // OFX: sinal pelo TRNTYPE (padrao negativo; alguns emissores invertem).
+      setSign(ofx ? ofx.expenseSign : detectExpenseSign(parsed.table, detected));
+
+      if (ofx) {
+        const notes = [
+          ofx.expenseSign === "positivo" &&
+            "Este arquivo registra os gastos com valores positivos; o sinal foi ajustado. Confira a lista.",
+          ofx.accounts > 1 &&
+            `O arquivo tem ${ofx.accounts} contas ou cartões e as transações foram combinadas. Desmarque pagamentos de fatura para não contar o gasto duas vezes.`,
+          ofx.duplicatesSkipped > 0 &&
+            `${ofx.duplicatesSkipped === 1 ? "1 transação repetida foi ignorada" : `${ofx.duplicatesSkipped} transações repetidas foram ignoradas`} (mesmo identificador no arquivo).`,
+        ].filter(Boolean);
+        if (notes.length) {
+          notify("warning", notes.join(" "));
+        }
+      }
       resetChoices();
     } catch {
       notify("error", "Não foi possível ler o arquivo selecionado.");
@@ -462,13 +486,15 @@ export default function ImportPage() {
   }
 
   const amount = mapping?.amount;
+  // OFX tem colunas fixas (Data | Descricao | Valor): so o sinal e a frente sao configuraveis.
+  const isOfxFile = file?.format === "ofx";
 
   return (
     <section className="space-y-10" data-testid="import-page-screen">
       <PageHeader
         eyebrow="Lançamentos"
         title="Importar extrato"
-        description="Envie o CSV do extrato da conta ou da fatura do cartão, revise as categorias e importe os gastos de uma vez. O arquivo é lido apenas no seu navegador."
+        description="Envie o CSV ou OFX do extrato da conta ou da fatura do cartão, revise as categorias e importe os gastos de uma vez. O arquivo é lido apenas no seu navegador."
       />
 
       <Card>
@@ -476,8 +502,8 @@ export default function ImportPage() {
           <CardTitle>Arquivo</CardTitle>
           <CardDescription>
             {file
-              ? `${file.name} · ${plural(rows.length, "linha lida", "linhas lidas")}`
-              : "Formato CSV (separado por ponto e vírgula, vírgula ou tabulação), até 1 MB."}
+              ? `${file.name} · ${file.format.toUpperCase()} · ${plural(rows.length, "linha lida", "linhas lidas")}`
+              : "Formato CSV (separado por ponto e vírgula, vírgula ou tabulação) ou OFX, até 1 MB."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -485,7 +511,7 @@ export default function ImportPage() {
             ref={fileInputRef}
             id="statement-file"
             type="file"
-            accept=".csv,.txt,text/csv,text/plain"
+            accept=".csv,.txt,.ofx,.qfx,text/csv,text/plain,application/x-ofx"
             className="sr-only"
             aria-label="Arquivo do extrato"
             onChange={(event) => void handleFileChange(event)}
@@ -514,10 +540,14 @@ export default function ImportPage() {
           <CardHeader>
             <CardTitle>Configuração</CardTitle>
             <CardDescription>
-              Confira as colunas detectadas e o que representa um gasto no arquivo.
+              {isOfxFile
+                ? "Arquivo OFX: data, descrição e valor são lidos automaticamente. Confira o que representa um gasto."
+                : "Confira as colunas detectadas e o que representa um gasto no arquivo."}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {!isOfxFile && (
+              <>
             <div className="space-y-2">
               <Label htmlFor="header-row">Linha do cabeçalho</Label>
               <NativeSelect
@@ -579,8 +609,12 @@ export default function ImportPage() {
                 </NativeSelectOption>
               </NativeSelect>
             </div>
+              </>
+            )}
             {amount.kind === "single" ? (
               <>
+                {!isOfxFile && (
+                  <>
                 <div className="space-y-2">
                   <Label htmlFor="column-amount">Coluna de valor</Label>
                   <NativeSelect
@@ -617,6 +651,8 @@ export default function ImportPage() {
                     ))}
                   </NativeSelect>
                 </div>
+                  </>
+                )}
                 {amount.nature === null && (
                   <div className="space-y-2">
                     <Label htmlFor="expense-sign">Gastos no arquivo</Label>

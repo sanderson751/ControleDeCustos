@@ -483,3 +483,10 @@ describe("toImportInput", () => {
     expect(truncateText("a".repeat(198) + emoji, 200)).toHaveLength(200);
   });
 });
+
+describe("regressao: valor com virgula e ponto em coluna de outro formato", () => {
+  it("o ultimo separador decide, mesmo com decimal da coluna informado", () => {
+    expect(parseStatementAmount("-1.234,56", ".")).toBe(-1234.56);
+    expect(parseStatementAmount("1,234.56", ",")).toBe(1234.56);
+  });
+});

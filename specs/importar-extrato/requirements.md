@@ -8,7 +8,7 @@ em CSV. O usuário quer enviar esse arquivo, revisar e importar os gastos de uma
 ## Requisitos funcionais
 
 - RF-01: nova tela **Importar extrato** (`/import`), visível no menu apenas para `admin` e `standard`.
-- RF-02: o usuário seleciona um arquivo `.csv` (ou `.txt`) de até 1 MB. O processamento é todo no navegador: o arquivo não é enviado a nenhum servidor nem guardado.
+- RF-02: o usuário seleciona um arquivo `.csv`/`.txt` ou **`.ofx`/`.qfx`** de até 1 MB. O processamento é todo no navegador: o arquivo não é enviado a nenhum servidor nem guardado.
 - RF-03: leitura tolerante a formatos de banco: separador `;`, `,` ou tab (detectado pela consistência das linhas), campos entre aspas (aspas soltas no meio do texto, como `TV 50"`, são literais), BOM, codificação UTF-8 ou Windows-1252 (acentos de arquivos antigos).
 - RF-04: o app detecta as colunas **Data**, **Descrição** e **Valor** pelo cabeçalho (ex.: "Data", "Histórico", "Lançamento", "Title", "Valor", "Montante"), procurando-o nas 10 primeiras linhas (títulos do banco antes dele são pulados), e permite ajustar manualmente a linha do cabeçalho e as colunas. Sem cabeçalho reconhecido, infere pelo conteúdo (número de documento não é confundido com valor) ou avisa que não foi possível.
 - RF-04a: formatos de valor suportados: **uma coluna de valor** (com sinal ou com **coluna D/C** de natureza) e **colunas separadas de débito e crédito** (Santander, Bradesco). Colunas de saldo, US$, cotação e documento nunca são usadas como valor; na fatura com R$ e US$ prevalece a coluna em R$.
@@ -21,6 +21,7 @@ em CSV. O usuário quer enviar esse arquivo, revisar e importar os gastos de uma
 - RF-10: frente única para a importação (padrão **Variável**). Cada lançamento importado: conta = descrição do extrato (até 200 caracteres), competência = mês da data, data de criação = data da transação, 1 parcela, descrição = "Importado de <arquivo>".
 - RF-11: ao importar, feedback de sucesso com a quantidade e navegação para Custos na competência mais recente importada. Em falha parcial, informar quantos foram gravados; essas linhas ficam marcadas como "Importado" (não selecionáveis) e as demais mantêm seleção e categoria escolhidas para nova tentativa.
 - RF-12: `guest` não acessa a importação (mensagem de acesso restrito).
+- RF-13: **OFX** (1.x SGML e 2.x XML, extrato de conta e fatura de cartão), reconhecido pelo conteúdo (um `.ofx` com CSV dentro é lido como CSV): as transações (`STMTTRN`) são lidas com data (`DTPOSTED`/`DTUSER`, convertida para o dia local quando há fuso), descrição (`NAME`/`MEMO`) e valor (`TRNAMT`, ponto decimal pela especificação); não há configuração de colunas. O sinal padrão vem do `TRNTYPE` (débitos negativos; emissores que invertem são detectados e avisados) e pode ser trocado. Transações com `FITID` repetido são ignoradas, arquivos com várias contas/cartões geram aviso e arquivos sem transações também. Cada transação tem identificador único mesmo em OFX de uma linha só.
 
 ## Requisitos não funcionais
 
