@@ -41,4 +41,5 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - `specs/lancamentos-recorrentes/`: contas mensais geradas automaticamente ao abrir o app.
 - `specs/metas-de-economia/`: objetivos de economia com depositos/retiradas e acompanhamento.
 - `specs/testes-e2e/`: testes de ponta a ponta com Playwright nos emuladores.
+- `specs/lista-de-mercado/`: lista de mercado com previsão pelo histórico de preços (entregas A, B e C).
 - `CLAUDE.md` e `.claude/`: mapeamento dos agentes e skills do SDD para o Claude Code.

@@ -984,3 +984,189 @@ describe("metas: datas e carimbos de tempo", () => {
     );
   });
 });
+
+describe("lista de mercado (groceryProducts, groceryLists, groceryPurchases)", () => {
+  const product = {
+    userId: "ana",
+    name: "Arroz 5kg",
+    normalizedName: "arroz 5kg",
+    unit: "un",
+    lastUnitPrice: null,
+    previousUnitPrice: null,
+    lastPurchasedAt: null,
+    lastStore: "",
+    purchaseCount: 0,
+    avgIntervalDays: null,
+    aliases: [],
+  };
+  const list = {
+    userId: "ana",
+    name: "Compra de 27/11",
+    status: "aberta",
+    items: [{ id: "i1", productId: "p1", name: "Arroz 5kg", quantity: 2, checked: false }],
+    purchaseId: null,
+    completedAt: null,
+  };
+  const purchase = {
+    userId: "ana",
+    listId: "l1",
+    store: "Assaí",
+    purchasedAt: new Date(2026, 10, 27, 12),
+    total: 60,
+    costEntryId: "c1",
+    items: [{ productId: "p1", rawName: "Arroz 5kg", quantity: 2, unitPrice: 25.9, lineTotal: 51.8 }],
+    receiptKey: null,
+    ocrConfidence: null,
+  };
+
+  it("standard cria produto e lista e conclui com compra no mesmo lote", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryProducts/p1"), product));
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), list));
+    await assertSucceeds(updateDoc(doc(db, "users/ana/groceryLists/l1"), { items: [] }));
+
+    const batch = writeBatch(db);
+    batch.set(doc(db, "users/ana/costEntries/c1"), { ...validCost, accountName: "Mercado — Assaí", amount: 60, category: "alimentacao" });
+    batch.set(doc(db, "users/ana/groceryPurchases/g1"), purchase);
+    batch.update(doc(db, "users/ana/groceryProducts/p1"), {
+      lastUnitPrice: 25.9,
+      purchaseCount: 1,
+      lastPurchasedAt: new Date(2026, 10, 27, 12),
+      lastStore: "Assaí",
+    });
+    batch.update(doc(db, "users/ana/groceryLists/l1"), { status: "concluida", purchaseId: "g1", paidTotal: 60, completedAt: new Date() });
+    await assertSucceeds(batch.commit());
+
+    // Lista concluida e somente leitura; compra imutavel.
+    await assertFails(updateDoc(doc(db, "users/ana/groceryLists/l1"), { name: "Outra" }));
+    await assertFails(updateDoc(doc(db, "users/ana/groceryPurchases/g1"), { total: 1 }));
+    await assertSucceeds(deleteDoc(doc(db, "users/ana/groceryLists/l1")));
+  });
+
+  it("concluir sem registrar a compra no mesmo lote e negado", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l2"), list));
+    await assertFails(
+      updateDoc(doc(db, "users/ana/groceryLists/l2"), { status: "concluida", purchaseId: "naoExiste" }),
+    );
+  });
+
+  it("bloqueia dados invalidos", async () => {
+    const db = as("ana");
+    for (const data of [
+      { ...product, name: "" },
+      { ...product, unit: "caixa" },
+      { ...product, lastUnitPrice: 0 },
+      { ...product, aliases: Array.from({ length: 11 }, (_, index) => `a${index}`) },
+      { ...product, extra: 1 },
+    ]) {
+      await assertFails(setDoc(doc(db, "users/ana/groceryProducts/px"), data));
+    }
+    for (const data of [
+      { ...list, status: "concluida" },
+      { ...list, items: Array.from({ length: 151 }, () => list.items[0]) },
+      { ...list, name: "x".repeat(61) },
+    ]) {
+      await assertFails(setDoc(doc(db, "users/ana/groceryLists/lx"), data));
+    }
+    for (const data of [
+      { ...purchase, total: 0 },
+      { ...purchase, store: "" },
+      { ...purchase, purchasedAt: "2026-11-27" },
+      { ...purchase, ocrConfidence: 101 },
+    ]) {
+      await assertFails(setDoc(doc(db, "users/ana/groceryPurchases/gx"), data));
+    }
+  });
+
+  it("guest nao grava; outros usuarios nao leem", async () => {
+    await assertFails(
+      setDoc(doc(as("gui"), "users/gui/groceryLists/g1"), { ...list, userId: "gui" }),
+    );
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/groceryLists/l1"), list));
+    await assertFails(getDoc(doc(as("admin"), "users/ana/groceryLists/l1")));
+    await assertFails(getDocs(collection(as("gui"), "users/ana/groceryProducts")));
+  });
+});
+
+describe("lista de mercado: integridade da conclusao", () => {
+  const list = {
+    userId: "ana",
+    name: "Feira",
+    status: "aberta",
+    items: [],
+    purchaseId: null,
+    paidTotal: null,
+    completedAt: null,
+  };
+  const purchase = (listId: string, costEntryId = "c1") => ({
+    userId: "ana",
+    listId,
+    store: "Assaí",
+    purchasedAt: new Date(2026, 10, 27, 12),
+    total: 60,
+    costEntryId,
+    items: [],
+    receiptKey: null,
+    ocrConfidence: null,
+  });
+
+  it("nao reaproveita compra existente nem compra de outra lista", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), list));
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l2"), list));
+
+    const first = writeBatch(db);
+    first.set(doc(db, "users/ana/costEntries/c1"), { ...validCost, category: "alimentacao" });
+    first.set(doc(db, "users/ana/groceryPurchases/g1"), purchase("l1"));
+    first.update(doc(db, "users/ana/groceryLists/l1"), { status: "concluida", purchaseId: "g1", paidTotal: 60 });
+    await assertSucceeds(first.commit());
+
+    // l2 tenta "concluir" apontando para a compra g1 ja existente.
+    await assertFails(
+      updateDoc(doc(db, "users/ana/groceryLists/l2"), { status: "concluida", purchaseId: "g1", paidTotal: 60 }),
+    );
+
+    // Compra nova, mas registrada para outra lista.
+    const wrong = writeBatch(db);
+    wrong.set(doc(db, "users/ana/costEntries/c2"), { ...validCost, category: "alimentacao" });
+    wrong.set(doc(db, "users/ana/groceryPurchases/g2"), purchase("l1", "c2"));
+    wrong.update(doc(db, "users/ana/groceryLists/l2"), { status: "concluida", purchaseId: "g2", paidTotal: 60 });
+    await assertFails(wrong.commit());
+  });
+
+  it("compra exige o lancamento no mesmo lote; lista aberta nao carrega dados de conclusao", async () => {
+    const db = as("ana");
+    await assertFails(setDoc(doc(db, "users/ana/groceryPurchases/g9"), purchase("l1", "naoExiste")));
+    await assertFails(setDoc(doc(db, "users/ana/groceryLists/l3"), { ...list, purchaseId: "g1" }));
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l3"), list));
+    await assertFails(updateDoc(doc(db, "users/ana/groceryLists/l3"), { paidTotal: 10 }));
+  });
+
+  it("guest nao conclui nem edita; produto com historico invalido e negado", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/gui/groceryLists/g1"), { ...list, userId: "gui" });
+    });
+    await assertFails(updateDoc(doc(as("gui"), "users/gui/groceryLists/g1"), { items: [] }));
+    await assertFails(deleteDoc(doc(as("gui"), "users/gui/groceryLists/g1")));
+
+    const product = {
+      userId: "ana",
+      name: "Arroz",
+      normalizedName: "arroz",
+      unit: "un",
+      lastUnitPrice: 25.9,
+      previousUnitPrice: 24.5,
+      lastPurchasedAt: new Date(),
+      lastStore: "Assaí",
+      purchaseCount: 3,
+      avgIntervalDays: 12.5,
+      intervalCount: 2,
+      aliases: [],
+    };
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/groceryProducts/p1"), product));
+    for (const patch of [{ avgIntervalDays: 4000 }, { purchaseCount: -1 }, { intervalCount: 1.5 }]) {
+      await assertFails(updateDoc(doc(as("ana"), "users/ana/groceryProducts/p1"), patch));
+    }
+  });
+});

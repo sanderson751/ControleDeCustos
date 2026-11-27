@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   PiggyBankIcon,
   RepeatIcon,
+  ShoppingCartIcon,
   TargetIcon,
   TagsIcon,
   TrendingUpIcon,
@@ -30,6 +31,8 @@ export const ROUTES = {
   import: "/import",
   recurring: "/recurring",
   goals: "/goals",
+  grocery: "/grocery",
+  groceryList: (listId: string) => `/grocery/${encodeURIComponent(listId)}`,
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;
@@ -73,6 +76,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     path: ROUTES.evolution,
     icon: TrendingUpIcon,
     keepsCompetence: true,
+  },
+  {
+    key: "grocery",
+    label: "Mercado",
+    path: ROUTES.grocery,
+    icon: ShoppingCartIcon,
   },
   {
     key: "goals",

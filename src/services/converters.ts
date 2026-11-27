@@ -4,6 +4,13 @@ import type { CustomCategory } from "@/domain/entities/category";
 import type { CostEntry } from "@/domain/entities/cost";
 import type { RecurringCost } from "@/domain/entities/recurringCost";
 import type { GoalContribution, SavingsGoal } from "@/domain/entities/savingsGoal";
+import {
+  GROCERY_UNITS,
+  type GroceryList,
+  type GroceryListItem,
+  type GroceryProduct,
+  type GroceryUnit,
+} from "@/domain/entities/grocery";
 import type { UserProfile } from "@/domain/entities/user";
 import { normalizeCategory } from "@/domain/rules/costRules";
 import { normalizeRole } from "@/domain/rules/permissions";
@@ -139,5 +146,66 @@ export function toGoalContribution(id: string, data: DocumentData): GoalContribu
     amount: Number(data.amount ?? 0),
     date: toDate(data.date),
     note: typeof data.note === "string" ? data.note : "",
+  };
+}
+
+const priceOrNull = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+
+export function toGroceryProduct(id: string, data: DocumentData): GroceryProduct {
+  const unit = GROCERY_UNITS.includes(data.unit as GroceryUnit) ? (data.unit as GroceryUnit) : "un";
+
+  return {
+    id,
+    name: String(data.name ?? ""),
+    normalizedName: String(data.normalizedName ?? ""),
+    unit,
+    lastUnitPrice: priceOrNull(data.lastUnitPrice),
+    previousUnitPrice: priceOrNull(data.previousUnitPrice),
+    lastPurchasedAt: data.lastPurchasedAt ? toDate(data.lastPurchasedAt) : null,
+    lastStore: typeof data.lastStore === "string" ? data.lastStore : "",
+    purchaseCount: Number.isInteger(data.purchaseCount) ? Number(data.purchaseCount) : 0,
+    avgIntervalDays:
+      typeof data.avgIntervalDays === "number" && data.avgIntervalDays >= 0 ? data.avgIntervalDays : null,
+    intervalCount: Number.isInteger(data.intervalCount) ? Number(data.intervalCount) : 0,
+    aliases: Array.isArray(data.aliases) ? data.aliases.filter((alias): alias is string => typeof alias === "string") : [],
+  };
+}
+
+function toGroceryListItem(raw: unknown, index: number): GroceryListItem | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const item = raw as Record<string, unknown>;
+  const quantity = Number(item.quantity);
+
+  if (typeof item.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
+    return null;
+  }
+
+  return {
+    id: typeof item.id === "string" && item.id ? item.id : `item-${index}`,
+    productId: item.productId,
+    name: String(item.name ?? ""),
+    quantity,
+    checked: item.checked === true,
+  };
+}
+
+export function toGroceryList(id: string, data: DocumentData): GroceryList {
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    id,
+    name: String(data.name ?? ""),
+    status: data.status === "concluida" ? "concluida" : "aberta",
+    items: items
+      .map((item: unknown, index: number) => toGroceryListItem(item, index))
+      .filter((item: GroceryListItem | null): item is GroceryListItem => item !== null),
+    purchaseId: typeof data.purchaseId === "string" ? data.purchaseId : null,
+    paidTotal: typeof data.paidTotal === "number" && data.paidTotal > 0 ? data.paidTotal : null,
+    createdAt: toDate(data.createdAt),
+    completedAt: data.completedAt ? toDate(data.completedAt) : null,
   };
 }

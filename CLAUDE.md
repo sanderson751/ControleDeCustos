@@ -94,6 +94,9 @@ users/{uid}/categories/{categoryId}   # categoria personalizada: userId, name, a
 users/{uid}/recurringCosts/{id}     # recorrencia mensal + cursor lastGenerated; gera costEntries/rec-{id}-{AAAA-MM}
 users/{uid}/savingsGoals/{id}       # meta: name, targetAmount, deadlineYear/Month (opcional)
 users/{uid}/goalContributions/{id}  # movimentacao imutavel: goalId, amount (+deposito/-retirada), date, note
+users/{uid}/groceryProducts/{id}    # catalogo de mercado: name, unit, lastUnitPrice/previousUnitPrice, intervalos
+users/{uid}/groceryLists/{id}       # lista: items[], status aberta|concluida (concluida = somente leitura), paidTotal
+users/{uid}/groceryPurchases/{id}   # compra imutavel: itens com preco pago, total, costEntryId
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal, recurringId?,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
 users/{uid}/budgetLimits/{AAAA-MM-categoria}     # orçamento de um único mês (exceção)

@@ -46,6 +46,7 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
 - Evolução mensal: gráfico de gasto x orçamento por mês (6 ou 12 meses), filtros por categoria e frente, indicadores do período e visão em tabela.
 - Categorias personalizadas (criar, renomear, arquivar/reativar) usadas em lançamentos, filtros, orçamentos e relatórios.
 - Metas de economia: objetivos com valor-alvo e prazo, depósitos/retiradas, progresso e quanto guardar por mês (resumo no Início).
+- Lista de mercado: valor previsto pelo último preço pago de cada produto, comparação com o orçamento de Alimentação e conclusão que gera o lançamento de mercado e atualiza o histórico de preços.
 - Relatórios por período, frente e categoria, com exportação CSV e PDF.
 - Gestão de perfis de usuários (admin).
 - Tema light/dark e menu lateral retrátil com preferência salva no Firestore.
