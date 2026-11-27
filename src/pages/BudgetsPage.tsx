@@ -417,7 +417,7 @@ function BudgetEditor({
                       {summary.limit ? (
                         <div className="space-y-1">
                           <Progress
-                            value={summary.percent ?? 0}
+                            value={Math.min(100, summary.percent ?? 0)}
                             aria-label={`${label}: ${summary.percent}% do orçamento`}
                             indicatorClassName={BUDGET_STATUS_TONE[summary.status].bar}
                           />
