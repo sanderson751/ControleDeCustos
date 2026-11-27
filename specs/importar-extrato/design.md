@@ -33,6 +33,11 @@ File ─► decodeStatementFile (lib) ─► parseCsv ─► detectColumns ─�
 Tipos em `src/domain/entities/statementImport.ts`: `StatementTable`, `ColumnMapping`,
 `ExpenseSign`, `ImportRow`, `MAX_IMPORT_ROWS = 500`, `MAX_IMPORT_FILE_BYTES = 1 MB`.
 
+`src/domain/rules/ofxParser.ts`: `isOfx(texto, nome)` e `parseOfx(texto)` convertem as transações em uma
+tabela `Data | Descrição | Valor` (com a linha de cada `<STMTTRN>`), reaproveitando todo o fluxo do CSV
+(detecção de colunas, categorias, duplicados, lotes). Valores com vírgula e ponto são decididos pelo
+último separador mesmo quando a coluna usa outro formato.
+
 ## Infra
 
 - `src/lib/statementFile.ts`: `decodeStatementFile(buffer)` — `TextDecoder("utf-8", { fatal: true })`, fallback `windows-1252`; remove BOM.
@@ -58,6 +63,6 @@ verifica `canMutateCosts` (acesso direto pela URL).
 - **Frente única**: extratos não distinguem fixo/variável; o usuário ajusta depois se precisar.
 - **Lotes não atômicos entre si**: necessário pelo limite de acessos das regras; a falha parcial é
   informada e as linhas não gravadas continuam disponíveis.
-- **OFX fora de escopo** nesta versão (CSV é o formato comum aos bancos brasileiros).
+- **OFX** convertido para a mesma tabela do CSV: uma única pipeline de importação.
 - **Falha parcial**: `planChunks` preserva a ordem, então as primeiras `imported` linhas da seleção são marcadas como importadas localmente (não dependem do recarregamento dos existentes).
 - **Desempenho**: linhas da pré-visualização memoizadas; palavras-chave compiladas uma vez por categoria.

@@ -24,6 +24,13 @@
 - [x] Validação visual light/dark.
 - [x] Revisão de QA.
 
+## Fase 4 - OFX
+
+- [x] `ofxParser` (SGML/XML, conta e cartão, entidades, data local, linha de cada transação).
+- [x] Tela: detecção por extensão/conteúdo, configuração só de sinal e frente, aviso de OFX sem transações.
+- [x] Separador decimal: valor com vírgula e ponto decide pelo último separador.
+- [x] Testes unitários e de tela.
+
 ## Definição de pronto
 
 - [x] Checklist DoD transversal aplicado conforme `specs/_template/dod-checklist.md`.

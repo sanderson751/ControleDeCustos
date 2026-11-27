@@ -299,35 +299,35 @@ export function parseStatementAmount(
   const { digits, negative } = parsed;
   let normalized: string;
 
-  if (decimal) {
+  const lastComma = digits.lastIndexOf(",");
+  const lastDot = digits.lastIndexOf(".");
+  const commas = digits.split(",").length - 1;
+  const dots = digits.split(".").length - 1;
+
+  if (commas && dots) {
+    // Virgula e ponto juntos nao sao ambiguos: o ultimo separador e o decimal
+    // (vale mesmo quando o restante da coluna usa o outro formato).
+    normalized =
+      lastComma > lastDot
+        ? digits.replaceAll(".", "").replace(",", ".")
+        : digits.replaceAll(",", "");
+  } else if (decimal) {
     const thousands = decimal === "," ? "." : ",";
     const withoutThousands = digits.replaceAll(thousands, "");
     if (withoutThousands.split(decimal).length > 2) {
       return null;
     }
     normalized = withoutThousands.replace(decimal, ".");
+  } else if (commas) {
+    normalized =
+      commas > 1 || /^[1-9]\d{0,2},\d{3}$/.test(digits)
+        ? digits.replaceAll(",", "")
+        : digits.replace(",", ".");
+  } else if (dots > 1 || /^[1-9]\d{0,2}\.\d{3}$/.test(digits)) {
+    // "1.234" sem outra evidencia: milhar ("0.500" continua decimal).
+    normalized = digits.replaceAll(".", "");
   } else {
-    const lastComma = digits.lastIndexOf(",");
-    const lastDot = digits.lastIndexOf(".");
-    const commas = digits.split(",").length - 1;
-    const dots = digits.split(".").length - 1;
-
-    if (commas && dots) {
-      normalized =
-        lastComma > lastDot
-          ? digits.replaceAll(".", "").replace(",", ".")
-          : digits.replaceAll(",", "");
-    } else if (commas) {
-      normalized =
-        commas > 1 || /^[1-9]\d{0,2},\d{3}$/.test(digits)
-          ? digits.replaceAll(",", "")
-          : digits.replace(",", ".");
-    } else if (dots > 1 || /^[1-9]\d{0,2}\.\d{3}$/.test(digits)) {
-      // "1.234" sem outra evidencia: milhar ("0.500" continua decimal).
-      normalized = digits.replaceAll(".", "");
-    } else {
-      normalized = digits;
-    }
+    normalized = digits;
   }
 
   const amount = Number(normalized);
@@ -556,9 +556,17 @@ export function detectColumns(
 
 function bodyOf(table: StatementTable, mapping: ColumnMapping, lineNumbers?: readonly number[]) {
   const start = mapping.headerRow === null ? 0 : mapping.headerRow + 1;
+  // A linha e o identificador da linha na tela (selecao, categoria, duplicados):
+  // numeros repetidos ou faltando caem na posicao na tabela.
+  const usable =
+    lineNumbers &&
+    lineNumbers.length === table.length &&
+    new Set(lineNumbers).size === lineNumbers.length
+      ? lineNumbers
+      : undefined;
   return table.slice(start).map((cells, index) => ({
     cells,
-    line: lineNumbers?.[start + index] ?? start + index + 1,
+    line: usable?.[start + index] ?? start + index + 1,
   }));
 }
 

@@ -83,7 +83,7 @@ describe("ImportPage", () => {
     const { user } = setup();
     await upload(user);
 
-    expect(await screen.findByText("extrato.csv · 3 linhas lidas")).toBeInTheDocument();
+    expect(await screen.findByText("extrato.csv · CSV · 3 linhas lidas")).toBeInTheDocument();
     expect(screen.getByLabelText("Coluna de data")).toHaveValue("0");
     expect(screen.getByLabelText("Coluna de valor")).toHaveValue("2");
     expect(screen.getByLabelText("Gastos no arquivo")).toHaveValue("negativo");
@@ -233,7 +233,7 @@ describe("ImportPage", () => {
       ["Data;Histórico;Valor", "05/05/2026;UBER TRIP;-23,90"].join("\n"),
       "maio.csv",
     );
-    await screen.findByText("maio.csv · 1 linha lida");
+    await screen.findByText("maio.csv · CSV · 1 linha lida");
     resolveFirst([
       makeCostEntry({ accountName: "UBER TRIP", amount: 23.9, createdAt: new Date(2026, 4, 5) }),
     ] as never[]);
@@ -298,5 +298,136 @@ describe("ImportPage", () => {
       screen.getByText("Você não possui permissão para importar lançamentos."),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Arquivo do extrato")).not.toBeInTheDocument();
+  });
+});
+
+describe("ImportPage - OFX", () => {
+  const OFX = [
+    "OFXHEADER:100",
+    "DATA:OFXSGML",
+    "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>",
+    "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261107<TRNAMT>-12.50<MEMO>Padaria Sol</STMTTRN>",
+    "<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20261108<TRNAMT>100.00<MEMO>Pix recebido</STMTTRN>",
+    "</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>",
+  ].join("\n");
+
+  beforeEach(() => {
+    mockedExisting.mockResolvedValue([]);
+    mockedImport.mockResolvedValue(1);
+  });
+
+  it("le o OFX sem configuracao de colunas e importa as despesas", async () => {
+    const { user } = setup();
+    await user.upload(
+      screen.getByLabelText("Arquivo do extrato"),
+      new File([OFX], "extrato.ofx", { type: "application/x-ofx" }),
+    );
+
+    expect(await screen.findByText("extrato.ofx · OFX · 2 linhas lidas")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Coluna de data")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Formato do valor")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Gastos no arquivo")).toHaveValue("negativo");
+    expect(within(rowOf("Pix recebido")).getByText("Crédito ignorado")).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "Importar 1 lançamento" }));
+    await waitFor(() =>
+      expect(mockedImport).toHaveBeenCalledWith("uid-standard", [
+        expect.objectContaining({
+          accountName: "Padaria Sol",
+          amount: 12.5,
+          description: "Importado de extrato.ofx",
+          createdAtManual: new Date(2026, 10, 7, 12),
+        }),
+      ]),
+    );
+  });
+
+  it("OFX sem transacoes avisa", async () => {
+    const { user } = setup();
+    await user.upload(
+      screen.getByLabelText("Arquivo do extrato"),
+      new File(["OFXHEADER:100\n<OFX><BANKTRANLIST></BANKTRANLIST></OFX>"], "vazio.ofx"),
+    );
+
+    await waitFor(() =>
+      expect(mockedNotify).toHaveBeenCalledWith(
+        "warning",
+        "Nenhuma transação encontrada no arquivo OFX.",
+      ),
+    );
+  });
+});
+
+describe("ImportPage - OFX (regressoes da revisao)", () => {
+  beforeEach(() => {
+    mockedExisting.mockResolvedValue([]);
+    mockedImport.mockResolvedValue(1);
+  });
+
+  it("OFX em uma linha so: selecao e categoria independentes por transacao", async () => {
+    const oneLine =
+      "<OFX><BANKTRANLIST>" +
+      "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261101<TRNAMT>-1.00<FITID>a<MEMO>Um</STMTTRN>" +
+      "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261102<TRNAMT>-2.00<FITID>b<MEMO>Dois</STMTTRN>" +
+      "</BANKTRANLIST></OFX>";
+    const { user } = setup();
+    await user.upload(screen.getByLabelText("Arquivo do extrato"), new File([oneLine], "x.ofx"));
+
+    await screen.findByText("x.ofx · OFX · 2 linhas lidas");
+    await user.click(within(rowOf("Um")).getByRole("checkbox"));
+
+    expect(within(rowOf("Um")).getByRole("checkbox")).not.toBeChecked();
+    expect(within(rowOf("Dois")).getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("button", { name: "Importar 1 lançamento" })).toBeEnabled();
+  });
+
+  it("arquivo .ofx com CSV dentro e lido como CSV", async () => {
+    const { user } = setup();
+    await user.upload(
+      screen.getByLabelText("Arquivo do extrato"),
+      new File(["Data;Histórico;Valor\n05/11/2026;Loja;-10,00"], "errado.ofx"),
+    );
+
+    expect(await screen.findByText("errado.ofx · CSV · 1 linha lida")).toBeInTheDocument();
+    expect(screen.getByLabelText("Coluna de data")).toBeInTheDocument();
+  });
+
+  it("fatura com sinal invertido: ajusta e avisa; o sinal pode ser trocado", async () => {
+    const inverted = `<OFX><CCSTMTRS><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261105<TRNAMT>58.40<MEMO>IFOOD</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20261110<TRNAMT>-1500.00<MEMO>Pagamento recebido</STMTTRN>
+</BANKTRANLIST></CCSTMTRS></OFX>`;
+    const { user } = setup();
+    await user.upload(screen.getByLabelText("Arquivo do extrato"), new File([inverted], "fatura.ofx"));
+
+    expect(await screen.findByLabelText("Gastos no arquivo")).toHaveValue("positivo");
+    expect(mockedNotify).toHaveBeenCalledWith(
+      "warning",
+      expect.stringContaining("o sinal foi ajustado"),
+    );
+    expect(within(rowOf("Pagamento recebido")).getByText("Crédito ignorado")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Gastos no arquivo"), "negativo");
+    expect(within(rowOf("IFOOD")).getByText("Crédito ignorado")).toBeInTheDocument();
+  });
+
+  it("avisa contas combinadas e transacoes repetidas", async () => {
+    const text = `<OFX>
+<STMTRS><BANKACCTFROM><ACCTID>1</BANKACCTFROM><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261105<TRNAMT>-10.00<FITID>X<MEMO>Loja</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261105<TRNAMT>-10.00<FITID>X<MEMO>Loja</STMTTRN>
+</BANKTRANLIST></STMTRS>
+<CCSTMTRS><CCACCTFROM><ACCTID>2</CCACCTFROM><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261106<TRNAMT>-5.00<FITID>Y<MEMO>Cafe</STMTTRN>
+</BANKTRANLIST></CCSTMTRS></OFX>`;
+    const { user } = setup();
+    await user.upload(screen.getByLabelText("Arquivo do extrato"), new File([text], "duas.ofx"));
+
+    await waitFor(() =>
+      expect(mockedNotify).toHaveBeenCalledWith(
+        "warning",
+        expect.stringMatching(/2 contas ou cartões.*1 transação repetida foi ignorada/),
+      ),
+    );
   });
 });
