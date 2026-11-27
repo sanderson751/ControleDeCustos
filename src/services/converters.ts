@@ -3,6 +3,7 @@ import type { BudgetLimit, RecurringBudget } from "@/domain/entities/budget";
 import type { CustomCategory } from "@/domain/entities/category";
 import type { CostEntry } from "@/domain/entities/cost";
 import type { RecurringCost } from "@/domain/entities/recurringCost";
+import type { GoalContribution, SavingsGoal } from "@/domain/entities/savingsGoal";
 import type { UserProfile } from "@/domain/entities/user";
 import { normalizeCategory } from "@/domain/rules/costRules";
 import { normalizeRole } from "@/domain/rules/permissions";
@@ -119,5 +120,24 @@ export function toRecurringCost(id: string, data: DocumentData): RecurringCost {
     },
     active: data.active !== false,
     lastGenerated: toCompetence(data.lastGeneratedYear, data.lastGeneratedMonth),
+  };
+}
+
+export function toSavingsGoal(id: string, data: DocumentData): SavingsGoal {
+  return {
+    id,
+    name: String(data.name ?? ""),
+    targetAmount: Number(data.targetAmount ?? 0),
+    deadline: toCompetence(data.deadlineYear, data.deadlineMonth),
+  };
+}
+
+export function toGoalContribution(id: string, data: DocumentData): GoalContribution {
+  return {
+    id,
+    goalId: String(data.goalId ?? ""),
+    amount: Number(data.amount ?? 0),
+    date: toDate(data.date),
+    note: typeof data.note === "string" ? data.note : "",
   };
 }

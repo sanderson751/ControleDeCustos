@@ -11,6 +11,8 @@ import { db } from "@/lib/firebase";
  * users/{uid}/recurringBudgets/{AAAA-MM-categoria}
  * users/{uid}/categories/{categoryId}
  * users/{uid}/recurringCosts/{recurringId}
+ * users/{uid}/savingsGoals/{goalId}
+ * users/{uid}/goalContributions/{contributionId}
  */
 export const USERS_COLLECTION = "users";
 export const SETTINGS_COLLECTION = "settings";
@@ -61,3 +63,18 @@ export const recurringCostsCollectionRef = (uid: string) =>
 
 export const recurringCostDocRef = (uid: string, recurringId: string) =>
   doc(db, USERS_COLLECTION, uid, RECURRING_COSTS_COLLECTION, recurringId);
+
+export const SAVINGS_GOALS_COLLECTION = "savingsGoals";
+export const GOAL_CONTRIBUTIONS_COLLECTION = "goalContributions";
+
+export const savingsGoalsCollectionRef = (uid: string) =>
+  collection(db, USERS_COLLECTION, uid, SAVINGS_GOALS_COLLECTION);
+
+export const savingsGoalDocRef = (uid: string, goalId: string) =>
+  doc(db, USERS_COLLECTION, uid, SAVINGS_GOALS_COLLECTION, goalId);
+
+export const goalContributionsCollectionRef = (uid: string) =>
+  collection(db, USERS_COLLECTION, uid, GOAL_CONTRIBUTIONS_COLLECTION);
+
+export const goalContributionDocRef = (uid: string, contributionId: string) =>
+  doc(db, USERS_COLLECTION, uid, GOAL_CONTRIBUTIONS_COLLECTION, contributionId);

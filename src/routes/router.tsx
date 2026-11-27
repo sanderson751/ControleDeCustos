@@ -10,6 +10,7 @@ import {
   CategoriesPage,
   ImportPage,
   RecurringPage,
+  GoalsPage,
   CostEditPage,
   CostsPage,
   EvolutionPage,
@@ -79,6 +80,14 @@ export const appRoutes: RouteObject[] = [
             element: (
               <PageSuspense>
                 <EvolutionPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: ROUTES.goals,
+            element: (
+              <PageSuspense>
+                <GoalsPage />
               </PageSuspense>
             ),
           },

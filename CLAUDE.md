@@ -90,6 +90,8 @@ users/{uid}                        # perfil + role (admin|standard|guest)
 users/{uid}/settings/profile       # ui.theme, ui.sidebarCollapsed, currency, locale
 users/{uid}/categories/{categoryId}   # categoria personalizada: userId, name, archived (sem exclusao)
 users/{uid}/recurringCosts/{id}     # recorrencia mensal + cursor lastGenerated; gera costEntries/rec-{id}-{AAAA-MM}
+users/{uid}/savingsGoals/{id}       # meta: name, targetAmount, deadlineYear/Month (opcional)
+users/{uid}/goalContributions/{id}  # movimentacao imutavel: goalId, amount (+deposito/-retirada), date, note
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal, recurringId?,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
 users/{uid}/budgetLimits/{AAAA-MM-categoria}     # orçamento de um único mês (exceção)
