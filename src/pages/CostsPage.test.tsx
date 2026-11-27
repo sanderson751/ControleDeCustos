@@ -535,3 +535,20 @@ describe("CostsPage", () => {
     );
   });
 });
+
+describe("CostsPage - lancamentos recorrentes", () => {
+  it("marca os lancamentos gerados por recorrencia", async () => {
+    mockedList.mockResolvedValue([
+      makeCostEntry({ accountName: "Aluguel", recurringId: "r1" }),
+      makeCostEntry({ accountName: "Mercado" }),
+    ]);
+    mockedBudgets.mockResolvedValue([]);
+    setup();
+
+    const aluguel = (await screen.findByText("Aluguel")).closest("tr");
+    expect(within(aluguel!).getByText("Recorrente")).toBeInTheDocument();
+    expect(
+      within(screen.getByText("Mercado").closest("tr")!).queryByText("Recorrente"),
+    ).not.toBeInTheDocument();
+  });
+});
