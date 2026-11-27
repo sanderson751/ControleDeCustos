@@ -277,7 +277,7 @@ service cloud.firestore {
         && data.items is list
         && data.items.size() <= 150
         && (data.get('receiptKey', null) == null
-          || (data.receiptKey is string && data.receiptKey.size() <= 64))
+          || (data.receiptKey is string && data.receiptKey.matches('^[A-Za-z0-9-]{1,64}$')))
         && (data.get('ocrConfidence', null) == null
           || (data.ocrConfidence is number && data.ocrConfidence >= 0 && data.ocrConfidence <= 100));
     }
@@ -386,7 +386,34 @@ service cloud.firestore {
           && isValidGroceryPurchase(request.resource.data)
           && request.resource.data.get('createdAt', request.time) == request.time
           // O lancamento de mercado e gravado no mesmo lote.
-          && existsAfter(/databases/$(database)/documents/users/$(userId)/costEntries/$(request.resource.data.costEntryId));
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/costEntries/$(request.resource.data.costEntryId))
+          // Comanda lida: a chave unica e registrada no mesmo lote, apontando para esta compra.
+          && (request.resource.data.get('receiptKey', null) == null
+            || getAfter(/databases/$(database)/documents/users/$(userId)/groceryReceiptKeys/$(request.resource.data.receiptKey)).data.purchaseId == purchaseId);
+
+        allow update: if false;
+
+        allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
+      // Comanda ja lancada (id = chave): criada uma unica vez, junto com a compra.
+      // Regravar a mesma chave e um update (negado): a comanda nao entra duas vezes.
+      match /groceryReceiptKeys/{receiptKey} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && receiptKey.matches('^[A-Za-z0-9-]{1,64}$')
+          && request.resource.data.keys().hasOnly(['userId', 'purchaseId', 'purchasedAt', 'total', 'createdAt'])
+          && request.resource.data.userId == userId
+          && request.resource.data.purchaseId is string
+          && request.resource.data.purchaseId.size() <= 40
+          && request.resource.data.purchasedAt is timestamp
+          && request.resource.data.total is number
+          && request.resource.data.total > 0
+          && request.resource.data.total <= 1000000000
+          && request.resource.data.get('createdAt', request.time) == request.time
+          && getAfter(/databases/$(database)/documents/users/$(userId)/groceryPurchases/$(request.resource.data.purchaseId)).data.get('receiptKey', null) == receiptKey;
 
         allow update: if false;
 

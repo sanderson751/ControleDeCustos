@@ -17,7 +17,8 @@ export async function login(page: Page, user: TestUser) {
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Senha").fill(user.password);
   await page.locator('form button[type="submit"]').click();
-  await expect(page).toHaveURL(/\/home/);
+  // Primeira navegacao da execucao: o servidor de dev compila as telas sob demanda.
+  await expect(page).toHaveURL(/\/home/, { timeout: 30_000 });
   await expect(page.getByText("Atualizando lançamentos recorrentes...")).toHaveCount(0);
 }
 

@@ -52,6 +52,7 @@ export function createFirestoreMock() {
       op,
       value,
     })),
+    limit: vi.fn((count: number) => ({ type: "limit", count })),
     orderBy: vi.fn((field: string, direction: string) => ({
       type: "orderBy",
       field,

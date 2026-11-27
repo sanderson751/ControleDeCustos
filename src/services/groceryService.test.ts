@@ -5,11 +5,12 @@ import {
   createList,
   createProduct,
   deleteList,
+  findPurchaseByReceiptKey,
   subscribeToLists,
   subscribeToProducts,
   updateListItems,
 } from "@/services/groceryService";
-import { querySnapshot, timestamp } from "@/test/firestoreMock";
+import { docSnapshot, querySnapshot, timestamp } from "@/test/firestoreMock";
 
 vi.mock("firebase/firestore", async () =>
   (await import("@/test/firestoreMock")).createFirestoreMock(),
@@ -126,6 +127,7 @@ describe("groceryService", () => {
         purchasedAt: NOW,
         total: 60,
         items: [{ productId: "arroz", rawName: "Arroz", quantity: 2, unitPrice: 25.9, lineTotal: 51.8 }],
+        newProductLinks: {},
       },
       productUpdates: [
         {
@@ -137,8 +139,12 @@ describe("groceryService", () => {
           purchaseCount: 1,
           avgIntervalDays: null,
           intervalCount: 0,
+          aliases: [],
         },
       ],
+      newProducts: [],
+      receipt: null,
+      droppedExtras: 0,
     });
 
     expect(batch.commit).toHaveBeenCalledTimes(1);
@@ -164,5 +170,97 @@ describe("groceryService", () => {
       expect.objectContaining({ path: "users/uid-1/groceryLists/l1" }),
       expect.objectContaining({ status: "concluida", purchaseId: result.purchaseId, paidTotal: 60 }),
     );
+  });
+});
+
+describe("groceryService - comanda", () => {
+  beforeEach(() => {
+    batch.commit.mockResolvedValue(undefined);
+  });
+
+  it("conclusao com comanda cria produto novo (ligado a compra), apelidos, chave unica e confianca", async () => {
+    const result = await completeList("uid-1", LIST, {
+      cost: { accountName: "Mercado — Assaí", amount: 77.67, description: "Lista: Feira", purchasedAt: NOW },
+      purchase: {
+        store: "Assaí",
+        purchasedAt: NOW,
+        total: 77.67,
+        items: [{ productId: null, rawName: "DETERGENTE YPE 500ML", quantity: 3, unitPrice: 2.79, lineTotal: 8.37 }],
+        newProductLinks: { 0: 0 },
+      },
+      productUpdates: [
+        {
+          productId: "arroz",
+          aliases: ["arroz tipo 1 tio joao 5kg"],
+          lastUnitPrice: 25.9,
+          previousUnitPrice: null,
+          lastPurchasedAt: NOW,
+          lastStore: "Assaí",
+          purchaseCount: 1,
+          avgIntervalDays: null,
+          intervalCount: 0,
+        },
+      ],
+      newProducts: [
+        {
+          name: "Detergente Ype 500ml",
+          normalizedName: "detergente ype 500ml",
+          unit: "un",
+          aliases: ["detergente ype 500ml"],
+          lastUnitPrice: 2.79,
+          previousUnitPrice: null,
+          lastPurchasedAt: NOW,
+          lastStore: "Assaí",
+          purchaseCount: 1,
+          avgIntervalDays: null,
+          intervalCount: 0,
+        },
+      ],
+      receipt: { key: "h-06057223000171-20261127-7767", confidence: 88.6 },
+      droppedExtras: 0,
+    });
+
+    const created = batch.set.mock.calls.find(([ref]) => (ref as { path: string }).path.includes("groceryProducts"));
+    const newProductId = (created?.[0] as { path: string }).path.split("/").pop();
+    expect(created?.[1]).toMatchObject({
+      userId: "uid-1",
+      name: "Detergente Ype 500ml",
+      lastUnitPrice: 2.79,
+      aliases: ["detergente ype 500ml"],
+      createdAt: "SERVER_TIMESTAMP",
+    });
+    const purchase = batch.set.mock.calls.find(([ref]) => (ref as { path: string }).path.includes("groceryPurchases"));
+    expect(purchase?.[1]).toMatchObject({ receiptKey: "h-06057223000171-20261127-7767", ocrConfidence: 89 });
+    expect((purchase?.[1] as { items: Array<{ productId: string }> }).items[0].productId).toBe(newProductId);
+    const key = batch.set.mock.calls.find(([ref]) => (ref as { path: string }).path.includes("groceryReceiptKeys"));
+    expect(key?.[0]).toMatchObject({ path: "users/uid-1/groceryReceiptKeys/h-06057223000171-20261127-7767" });
+    expect(key?.[1]).toMatchObject({ userId: "uid-1", purchaseId: result.purchaseId, total: 77.67, createdAt: "SERVER_TIMESTAMP" });
+    expect(batch.update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "users/uid-1/groceryProducts/arroz" }),
+      expect.objectContaining({ aliases: ["arroz tipo 1 tio joao 5kg"] }),
+    );
+  });
+
+  it("procura a comanda ja lancada pela chave", async () => {
+    mocked.getDoc.mockResolvedValueOnce(
+      docSnapshot("k1", { purchaseId: "g9", purchasedAt: timestamp(NOW), total: 77.67 }) as never,
+    );
+    await expect(findPurchaseByReceiptKey("uid-1", "k1")).resolves.toEqual({ id: "g9", purchasedAt: NOW, total: 77.67 });
+    expect(mocked.getDoc).toHaveBeenCalledWith(expect.objectContaining({ path: "users/uid-1/groceryReceiptKeys/k1" }));
+
+    mocked.getDoc.mockResolvedValueOnce(docSnapshot("k2", null) as never);
+    await expect(findPurchaseByReceiptKey("uid-1", "k2")).resolves.toBeNull();
+  });
+
+  it("conclusao manual (sem comanda) nao grava chave", async () => {
+    await completeList("uid-1", LIST, {
+      cost: { accountName: "Mercado — A", amount: 10, description: "Lista: Feira", purchasedAt: NOW },
+      purchase: { store: "A", purchasedAt: NOW, total: 10, items: [], newProductLinks: {} },
+      productUpdates: [],
+      newProducts: [],
+      receipt: null,
+      droppedExtras: 0,
+    });
+    expect(batch.set.mock.calls.some(([ref]) => (ref as { path: string }).path.includes("groceryReceiptKeys"))).toBe(false);
   });
 });

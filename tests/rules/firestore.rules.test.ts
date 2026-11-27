@@ -1170,3 +1170,164 @@ describe("lista de mercado: integridade da conclusao", () => {
     }
   });
 });
+
+describe("lista de mercado: conclusao com comanda", () => {
+  const KEY = "35261106057223000171650010000123451000123457";
+  const openList = {
+    userId: "ana",
+    name: "Feira",
+    status: "aberta",
+    items: [],
+    purchaseId: null,
+    paidTotal: null,
+    completedAt: null,
+  };
+  const newProduct = (name: string) => ({
+    userId: "ana",
+    name,
+    normalizedName: name.toLowerCase(),
+    unit: "un",
+    aliases: [name.toLowerCase().replace(/\s+/g, "")],
+    lastUnitPrice: 2.79,
+    previousUnitPrice: null,
+    lastPurchasedAt: new Date(),
+    lastStore: "Assaí",
+    purchaseCount: 1,
+    avgIntervalDays: null,
+    intervalCount: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  const purchase = (listId: string, costEntryId: string, receiptKey: string | null, items: unknown[] = []) => ({
+    userId: "ana",
+    listId,
+    store: "Assaí",
+    purchasedAt: new Date(),
+    total: 77.67,
+    costEntryId,
+    items,
+    receiptKey,
+    ocrConfidence: 88,
+    createdAt: serverTimestamp(),
+  });
+  const receiptKeyDoc = (purchaseId: string) => ({
+    userId: "ana",
+    purchaseId,
+    purchasedAt: new Date(),
+    total: 77.67,
+    createdAt: serverTimestamp(),
+  });
+
+  /** Lote de conclusao com comanda (lancamento, compra, chave e lista). */
+  function completion(db: ReturnType<typeof as>, ids: { list: string; cost: string; purchase: string }, key: string) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, `users/ana/costEntries/${ids.cost}`), { ...validCost, category: "alimentacao" });
+    batch.set(doc(db, `users/ana/groceryPurchases/${ids.purchase}`), purchase(ids.list, ids.cost, key));
+    batch.set(doc(db, `users/ana/groceryReceiptKeys/${key}`), receiptKeyDoc(ids.purchase));
+    batch.update(doc(db, `users/ana/groceryLists/${ids.list}`), {
+      status: "concluida",
+      purchaseId: ids.purchase,
+      paidTotal: 77.67,
+    });
+    return batch;
+  }
+
+  it("lote com produto novo, chave unica da comanda e confianca", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), openList));
+
+    const batch = completion(db, { list: "l1", cost: "c1", purchase: "g1" }, KEY);
+    batch.set(doc(db, "users/ana/groceryProducts/novo"), newProduct("Detergente Ype 500ml"));
+    await assertSucceeds(batch.commit());
+
+    // Consulta de duplicidade: so o dono le a chave; a chave e imutavel.
+    await assertSucceeds(getDoc(doc(db, `users/ana/groceryReceiptKeys/${KEY}`)));
+    await assertFails(getDoc(doc(as("admin"), `users/ana/groceryReceiptKeys/${KEY}`)));
+    await assertFails(updateDoc(doc(db, `users/ana/groceryReceiptKeys/${KEY}`), { total: 1 }));
+  });
+
+  it("a mesma comanda nao entra duas vezes (outra lista, mesmo lote de conclusao)", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), openList));
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l2"), openList));
+    await assertSucceeds(completion(db, { list: "l1", cost: "c1", purchase: "g1" }, KEY).commit());
+
+    await assertFails(completion(db, { list: "l2", cost: "c2", purchase: "g2" }, KEY).commit());
+    // Chave diferente (outra comanda) segue permitida.
+    await assertSucceeds(completion(db, { list: "l2", cost: "c2", purchase: "g2" }, "h-06057223000171-20261127-7767").commit());
+  });
+
+  it("compra com chave exige o registro da chave apontando para ela", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), openList));
+
+    const withoutKey = writeBatch(db);
+    withoutKey.set(doc(db, "users/ana/costEntries/c1"), { ...validCost, category: "alimentacao" });
+    withoutKey.set(doc(db, "users/ana/groceryPurchases/g1"), purchase("l1", "c1", KEY));
+    await assertFails(withoutKey.commit());
+
+    const otherPurchase = writeBatch(db);
+    otherPurchase.set(doc(db, "users/ana/costEntries/c1"), { ...validCost, category: "alimentacao" });
+    otherPurchase.set(doc(db, "users/ana/groceryPurchases/g1"), purchase("l1", "c1", KEY));
+    otherPurchase.set(doc(db, `users/ana/groceryReceiptKeys/${KEY}`), receiptKeyDoc("outra"));
+    await assertFails(otherPurchase.commit());
+
+    // Chave solta (sem compra com ela) e chave com caracteres invalidos.
+    await assertFails(setDoc(doc(db, "users/ana/groceryReceiptKeys/h-x-20261127-1"), receiptKeyDoc("g1")));
+    await assertFails(
+      completion(db, { list: "l1", cost: "c1", purchase: "g1" }, "h_loja.20261127").commit(),
+    );
+  });
+
+  it("lote grande: 30 produtos atualizados, 20 novos e 50 itens na compra", async () => {
+    const db = as("ana");
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      for (let index = 0; index < 30; index += 1) {
+        const { createdAt: _c, updatedAt: _u, ...data } = newProduct(`Produto ${index}`);
+        await setDoc(doc(context.firestore(), `users/ana/groceryProducts/p${index}`), data);
+      }
+    });
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), openList));
+
+    const items = Array.from({ length: 50 }, (_, index) => ({
+      productId: `p${index}`,
+      rawName: `PRODUTO ${index}`,
+      quantity: 1,
+      unitPrice: 2.79,
+      lineTotal: 2.79,
+    }));
+    const batch = writeBatch(db);
+    batch.set(doc(db, "users/ana/costEntries/c1"), { ...validCost, category: "alimentacao" });
+    batch.set(doc(db, "users/ana/groceryPurchases/g1"), purchase("l1", "c1", KEY, items));
+    batch.set(doc(db, `users/ana/groceryReceiptKeys/${KEY}`), receiptKeyDoc("g1"));
+    for (let index = 0; index < 30; index += 1) {
+      batch.update(doc(db, `users/ana/groceryProducts/p${index}`), {
+        lastUnitPrice: 3.1,
+        previousUnitPrice: 2.79,
+        purchaseCount: 2,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    for (let index = 30; index < 50; index += 1) {
+      batch.set(doc(db, `users/ana/groceryProducts/p${index}`), newProduct(`Produto ${index}`));
+    }
+    batch.update(doc(db, "users/ana/groceryLists/l1"), { status: "concluida", purchaseId: "g1", paidTotal: 77.67 });
+    await assertSucceeds(batch.commit());
+  });
+
+  it("compra com mais de 150 itens e negada", async () => {
+    const db = as("ana");
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/l1"), openList));
+    const items = Array.from({ length: 151 }, () => ({
+      productId: null,
+      rawName: "X",
+      quantity: 1,
+      unitPrice: 1,
+      lineTotal: 1,
+    }));
+    const batch = writeBatch(db);
+    batch.set(doc(db, "users/ana/costEntries/c1"), { ...validCost, category: "alimentacao" });
+    batch.set(doc(db, "users/ana/groceryPurchases/g1"), purchase("l1", "c1", null, items));
+    await assertFails(batch.commit());
+  });
+});

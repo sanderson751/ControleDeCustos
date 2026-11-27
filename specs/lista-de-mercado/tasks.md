@@ -12,7 +12,11 @@
 
 ## Entrega B — foto da comanda (OCR)
 
-- [ ] Tesseract.js sob demanda, pré-processamento, QR NFC-e, `receiptParser`, revisão e `receiptKey`.
+- [x] Tesseract.js sob demanda com arquivos próprios (`public/ocr`), pré-processamento e QR NFC-e (`receiptReader`).
+- [x] `receiptParser` (cupons NFC-e, ruído de OCR) e associação por apelido/semelhança.
+- [x] Revisão no diálogo de conclusão: destino por linha, produto novo, apelidos, comanda duplicada.
+- [x] Testes unitários, de regras e E2E com OCR real no navegador (cupom renderizado e fotografado).
+- [x] Revisão de QA (associação global e apelido só com certeza, "RS", 3 casas, SAT, desconto/cancelamento, total com troco, chave com DV/CNPJ e registro único em `groceryReceiptKeys`, limite de 150 itens, produto novo ligado à compra, restaurar campos ao descartar, cancelar/tempo limite da leitura, cache do OCR, a11y) com regressões.
 
 ## Entrega C — inteligência
 

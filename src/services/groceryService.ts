@@ -1,6 +1,7 @@
 import {
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -19,7 +20,7 @@ import {
 import { normalizeSearchText } from "@/domain/rules/costRules";
 import type { CompletionPlan } from "@/domain/rules/groceryRules";
 import { db } from "@/lib/firebase";
-import { toGroceryList, toGroceryProduct } from "@/services/converters";
+import { toDate, toGroceryList, toGroceryProduct } from "@/services/converters";
 import {
   costEntriesCollectionRef,
   groceryListDocRef,
@@ -27,6 +28,7 @@ import {
   groceryProductDocRef,
   groceryProductsCollectionRef,
   groceryPurchasesCollectionRef,
+  groceryReceiptKeyDocRef,
 } from "@/services/firestorePaths";
 
 /** Catalogo de produtos do usuario em tempo real, por nome. */
@@ -139,6 +141,21 @@ export async function updateListItems(
   });
 }
 
+/** Compra ja registrada com a mesma comanda (chave da NFC-e ou hash). */
+export async function findPurchaseByReceiptKey(
+  userId: string,
+  key: string,
+): Promise<{ id: string; purchasedAt: Date; total: number } | null> {
+  const snapshot = await getDoc(groceryReceiptKeyDocRef(userId, key));
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  return {
+    id: String(data.purchaseId ?? ""),
+    purchasedAt: toDate(data.purchasedAt),
+    total: Number(data.total ?? 0),
+  };
+}
+
 /** Exclui a lista; lancamento e compra ja registrados permanecem. */
 export async function deleteList(userId: string, listId: string): Promise<void> {
   await deleteDoc(groceryListDocRef(userId, listId));
@@ -157,6 +174,12 @@ export async function completeList(
   const costRef = doc(costEntriesCollectionRef(userId));
   const purchaseRef = doc(groceryPurchasesCollectionRef(userId));
   const purchasedAt = Timestamp.fromDate(plan.cost.purchasedAt);
+  const newProductRefs = plan.newProducts.map(() => doc(groceryProductsCollectionRef(userId)));
+  const purchaseItems = plan.purchase.items.map((item, index) => {
+    const link = plan.purchase.newProductLinks[index];
+    return link === undefined ? item : { ...item, productId: newProductRefs[link].id };
+  });
+  const receiptKey = plan.receipt?.key ?? null;
   const batch = writeBatch(db);
 
   batch.set(costRef, {
@@ -180,10 +203,34 @@ export async function completeList(
     purchasedAt,
     total: plan.purchase.total,
     costEntryId: costRef.id,
-    items: plan.purchase.items,
-    receiptKey: null,
-    ocrConfidence: null,
+    items: purchaseItems,
+    receiptKey,
+    ocrConfidence:
+      plan.receipt?.confidence === null || plan.receipt?.confidence === undefined
+        ? null
+        : Math.round(Math.min(100, Math.max(0, plan.receipt.confidence))),
     createdAt: serverTimestamp(),
+  });
+
+  // Chave unica da comanda: uma segunda gravacao com a mesma chave e negada pelas regras.
+  if (receiptKey) {
+    batch.set(groceryReceiptKeyDocRef(userId, receiptKey), {
+      userId,
+      purchaseId: purchaseRef.id,
+      purchasedAt,
+      total: plan.purchase.total,
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  plan.newProducts.forEach(({ lastPurchasedAt, ...fields }, index) => {
+    batch.set(newProductRefs[index], {
+      userId,
+      ...fields,
+      lastPurchasedAt: lastPurchasedAt ? Timestamp.fromDate(lastPurchasedAt) : null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
   });
 
   for (const { productId, lastPurchasedAt, ...fields } of plan.productUpdates) {
