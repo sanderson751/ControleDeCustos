@@ -39,4 +39,5 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - `specs/categorias-personalizadas/`: categorias proprias do usuario (criar, renomear, arquivar).
 - `specs/importar-extrato/`: importacao de extrato/fatura em CSV com pre-visualizacao.
 - `specs/lancamentos-recorrentes/`: contas mensais geradas automaticamente ao abrir o app.
+- `specs/metas-de-economia/`: objetivos de economia com depositos/retiradas e acompanhamento.
 - `CLAUDE.md` e `.claude/`: mapeamento dos agentes e skills do SDD para o Claude Code.
