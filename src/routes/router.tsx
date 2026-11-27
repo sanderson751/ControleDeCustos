@@ -9,6 +9,7 @@ import {
   BudgetsPage,
   CategoriesPage,
   ImportPage,
+  RecurringPage,
   CostEditPage,
   CostsPage,
   EvolutionPage,
@@ -78,6 +79,14 @@ export const appRoutes: RouteObject[] = [
             element: (
               <PageSuspense>
                 <EvolutionPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: ROUTES.recurring,
+            element: (
+              <PageSuspense>
+                <RecurringPage />
               </PageSuspense>
             ),
           },

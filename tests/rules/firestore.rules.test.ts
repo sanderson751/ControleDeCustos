@@ -727,3 +727,135 @@ describe("importacao de extrato (lote de costEntries)", () => {
     await assertFails(guestBatch.commit());
   });
 });
+
+describe("users/{uid}/recurringCosts (lancamentos recorrentes)", () => {
+  const recurring = {
+    userId: "ana",
+    accountName: "Aluguel",
+    amount: 2000,
+    costType: "fixo",
+    category: "moradia",
+    description: "",
+    dayOfMonth: 5,
+    startYear: 2026,
+    startMonth: 9,
+    active: true,
+    lastGeneratedYear: null,
+    lastGeneratedMonth: null,
+  };
+  const path = "users/ana/recurringCosts/r1";
+
+  it("standard cria, atualiza cursor, pausa e exclui a propria recorrencia", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), path), recurring));
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), path), { lastGeneratedYear: 2026, lastGeneratedMonth: 11 }),
+    );
+    await assertSucceeds(updateDoc(doc(as("ana"), path), { active: false }));
+    await assertSucceeds(getDoc(doc(as("ana"), path)));
+    await assertSucceeds(deleteDoc(doc(as("ana"), path)));
+  });
+
+  it("bloqueia recorrencias invalidas, campos extras e troca de dono", async () => {
+    for (const data of [
+      { ...recurring, dayOfMonth: 29 },
+      { ...recurring, dayOfMonth: 0 },
+      { ...recurring, amount: 0 },
+      { ...recurring, amount: "2000" },
+      { ...recurring, costType: "outro" },
+      { ...recurring, category: "naoExiste" },
+      { ...recurring, accountName: "" },
+      { ...recurring, startMonth: 13 },
+      { ...recurring, active: "sim" },
+      { ...recurring, lastGeneratedMonth: 13 },
+      { ...recurring, description: "x".repeat(501) },
+      { ...recurring, role: "admin" },
+      { ...recurring, userId: "gui" },
+    ]) {
+      await assertFails(setDoc(doc(as("ana"), path), data));
+    }
+
+    await assertSucceeds(setDoc(doc(as("ana"), path), recurring));
+    await assertFails(updateDoc(doc(as("ana"), path), { userId: "gui" }));
+  });
+
+  it("guest nao grava; outros usuarios nao leem", async () => {
+    await assertFails(
+      setDoc(doc(as("gui"), "users/gui/recurringCosts/g1"), { ...recurring, userId: "gui" }),
+    );
+    await assertSucceeds(setDoc(doc(as("ana"), path), recurring));
+    await assertFails(getDoc(doc(as("admin"), path)));
+    await assertFails(getDocs(collection(as("gui"), "users/ana/recurringCosts")));
+  });
+
+  it("lote de geracao: ocorrencia com recurringId + cursor; repetir regrava sem duplicar", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), path), recurring));
+    const occurrence = {
+      ...validCost,
+      accountName: "Aluguel",
+      amount: 2000,
+      recurringId: "r1",
+      competenceYear: 2026,
+      competenceMonth: 11,
+    };
+
+    const db = as("ana");
+    const first = writeBatch(db);
+    first.set(doc(db, "users/ana/costEntries/rec-r1-2026-11"), occurrence);
+    first.update(doc(db, path), { lastGeneratedYear: 2026, lastGeneratedMonth: 11 });
+    await assertSucceeds(first.commit());
+
+    const again = writeBatch(db);
+    again.set(doc(db, "users/ana/costEntries/rec-r1-2026-11"), occurrence);
+    await assertSucceeds(again.commit());
+
+    await assertFails(
+      setDoc(doc(db, "users/ana/costEntries/x1"), { ...occurrence, recurringId: 42 }),
+    );
+    await assertFails(
+      setDoc(doc(db, "users/ana/costEntries/x2"), { ...occurrence, recurringId: "r".repeat(41) }),
+    );
+  });
+});
+
+describe("recorrencias: cursor e vinculo do lancamento gerado", () => {
+  const base = {
+    userId: "ana",
+    accountName: "Aluguel",
+    amount: 2000,
+    costType: "fixo",
+    category: "moradia",
+    description: "",
+    dayOfMonth: 5,
+    startYear: 2026,
+    startMonth: 9,
+    active: true,
+  };
+
+  it("cursor deve vir completo (ano e mes juntos)", async () => {
+    const ref = doc(as("ana"), "users/ana/recurringCosts/c1");
+    await assertSucceeds(setDoc(ref, { ...base, lastGeneratedYear: null, lastGeneratedMonth: null }));
+    await assertSucceeds(updateDoc(ref, { lastGeneratedYear: 2026, lastGeneratedMonth: 11 }));
+    await assertFails(updateDoc(ref, { lastGeneratedYear: null }));
+    await assertFails(updateDoc(ref, { lastGeneratedMonth: null }));
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/recurringCosts/c2"), {
+        ...base,
+        lastGeneratedYear: 2026,
+        lastGeneratedMonth: null,
+      }),
+    );
+  });
+
+  it("recurringId so e aceito no id rec-<recorrencia>-<AAAA-MM>", async () => {
+    const occurrence = { ...validCost, recurringId: "r1" };
+
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/costEntries/rec-r1-2026-11"), occurrence));
+    await assertFails(setDoc(doc(as("ana"), "users/ana/costEntries/qualquer"), occurrence));
+    await assertFails(setDoc(doc(as("ana"), "users/ana/costEntries/rec-r2-2026-11"), occurrence));
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/costEntries/rec-r.1-2026-11"), { ...validCost, recurringId: "r.1" }),
+    );
+    // Lancamento comum sem recurringId segue livre.
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/costEntries/comum"), validCost));
+  });
+});

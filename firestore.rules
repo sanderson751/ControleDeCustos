@@ -103,6 +103,12 @@ service cloud.firestore {
         + string(data.month) + '-' + data.category;
     }
 
+    // Lancamento gerado por recorrencia: id rec-<recorrencia>-<AAAA-MM>.
+    function isValidOccurrenceId(entryId, data) {
+      return data.get('recurringId', '') == ''
+        || entryId.matches('^rec-' + data.recurringId + '-[0-9]{4}-[0-9]{2}$');
+    }
+
     function isValidCost(userId, data) {
       return isValidCategory(userId, data.category)
         && data.accountName is string
@@ -110,6 +116,9 @@ service cloud.firestore {
         && data.accountName.size() <= 200
         && data.get('description', '') is string
         && data.get('description', '').size() <= 500
+        && data.get('recurringId', '') is string
+        && (data.get('recurringId', '') == ''
+          || data.recurringId.matches('^[A-Za-z0-9]{1,40}$'))
         && data.amount is number
         && data.amount > 0
         && data.costType in ['fixo', 'variavel']
@@ -120,6 +129,42 @@ service cloud.firestore {
         && data.competenceMonth is int
         && data.competenceMonth >= 1
         && data.competenceMonth <= 12;
+    }
+
+    // Recorrencia mensal (gera um lancamento por competencia no cliente).
+    function isValidRecurringCost(userId, data) {
+      return data.keys().hasOnly(['userId', 'accountName', 'amount', 'costType', 'category',
+          'description', 'dayOfMonth', 'startYear', 'startMonth', 'active',
+          'lastGeneratedYear', 'lastGeneratedMonth', 'createdAt', 'updatedAt'])
+        && data.accountName is string
+        && data.accountName.size() > 0
+        && data.accountName.size() <= 200
+        && data.amount is number
+        && data.amount > 0
+        && data.amount <= 1000000000
+        && data.costType in ['fixo', 'variavel']
+        && isValidCategory(userId, data.category)
+        && data.get('description', '') is string
+        && data.get('description', '').size() <= 500
+        && data.dayOfMonth is int
+        && data.dayOfMonth >= 1
+        && data.dayOfMonth <= 28
+        && data.startYear is int
+        && data.startYear >= 2000
+        && data.startYear <= 2100
+        && data.startMonth is int
+        && data.startMonth >= 1
+        && data.startMonth <= 12
+        && data.active is bool
+        // Cursor completo: ano e mes juntos (ambos nulos ou ambos validos).
+        && ((data.get('lastGeneratedYear', null) == null
+            && data.get('lastGeneratedMonth', null) == null)
+          || (data.get('lastGeneratedYear', null) is int
+            && data.lastGeneratedYear >= 2000
+            && data.lastGeneratedYear <= 2100
+            && data.get('lastGeneratedMonth', null) is int
+            && data.lastGeneratedMonth >= 1
+            && data.lastGeneratedMonth <= 12));
     }
 
     match /users/{userId} {
@@ -169,19 +214,37 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /recurringCosts/{recurringId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidRecurringCost(userId, request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && !changedKeys().hasAny(['userId', 'createdAt'])
+          && isValidRecurringCost(userId, request.resource.data);
+
+        allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
       match /costEntries/{entryId} {
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.userId == userId
-          && isValidCost(userId, request.resource.data);
+          && isValidCost(userId, request.resource.data)
+          && isValidOccurrenceId(entryId, request.resource.data);
 
         allow update: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.get('userId', userId) == userId
           && !changedKeys().hasAny(['userId', 'createdAt'])
-          && isValidCost(userId, request.resource.data);
+          && isValidCost(userId, request.resource.data)
+          && isValidOccurrenceId(entryId, request.resource.data);
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }

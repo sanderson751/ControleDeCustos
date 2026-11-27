@@ -55,6 +55,8 @@ export type CostEntry = {
   competenceMonth: number;
   createdAt: Date;
   updatedAt: Date;
+  /** Recorrencia que gerou o lancamento (users/{uid}/recurringCosts). */
+  recurringId?: string;
 };
 
 export type NewCostInput = {

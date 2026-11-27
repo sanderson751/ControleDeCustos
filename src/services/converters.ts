@@ -2,6 +2,7 @@ import type { DocumentData } from "firebase/firestore";
 import type { BudgetLimit, RecurringBudget } from "@/domain/entities/budget";
 import type { CustomCategory } from "@/domain/entities/category";
 import type { CostEntry } from "@/domain/entities/cost";
+import type { RecurringCost } from "@/domain/entities/recurringCost";
 import type { UserProfile } from "@/domain/entities/user";
 import { normalizeCategory } from "@/domain/rules/costRules";
 import { normalizeRole } from "@/domain/rules/permissions";
@@ -45,6 +46,9 @@ export function toCostEntry(id: string, data: DocumentData): CostEntry {
     competenceMonth: Number(data.competenceMonth ?? now.getMonth() + 1),
     createdAt: toDate(data.createdAt, now),
     updatedAt: toDate(data.updatedAt, now),
+    ...(typeof data.recurringId === "string" && data.recurringId
+      ? { recurringId: data.recurringId }
+      : {}),
   };
 }
 
@@ -89,5 +93,31 @@ export function toCustomCategory(id: string, data: DocumentData): CustomCategory
     id,
     name: typeof data.name === "string" ? data.name : "",
     archived: data.archived === true,
+  };
+}
+
+function toCompetence(year: unknown, month: unknown) {
+  return Number.isInteger(year) && Number.isInteger(month)
+    ? { year: Number(year), month: Number(month) }
+    : null;
+}
+
+export function toRecurringCost(id: string, data: DocumentData): RecurringCost {
+  const now = new Date();
+
+  return {
+    id,
+    accountName: String(data.accountName ?? ""),
+    amount: Number(data.amount ?? 0),
+    costType: data.costType === "variavel" ? "variavel" : "fixo",
+    category: normalizeCategory(data.category),
+    description: typeof data.description === "string" ? data.description : "",
+    dayOfMonth: Number(data.dayOfMonth ?? 1),
+    start: toCompetence(data.startYear, data.startMonth) ?? {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+    },
+    active: data.active !== false,
+    lastGenerated: toCompetence(data.lastGeneratedYear, data.lastGeneratedMonth),
   };
 }

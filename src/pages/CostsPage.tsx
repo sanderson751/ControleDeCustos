@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -281,6 +282,11 @@ export default function CostsPage() {
                     <TableRow key={entry.id}>
                       <TableCell className="max-w-72">
                         <span className="font-medium">{entry.accountName}</span>
+                        {entry.recurringId && (
+                          <Badge variant="outline" className="ml-2 align-middle">
+                            Recorrente
+                          </Badge>
+                        )}
                         {entry.description && (
                           <span className="block truncate text-xs text-muted-foreground" title={entry.description}>
                             {entry.description}

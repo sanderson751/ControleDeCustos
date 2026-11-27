@@ -3,6 +3,7 @@ import {
   toDate,
   toRecurringBudget,
   toUserProfile,
+  toRecurringCost,
 } from "@/services/converters";
 
 describe("converters", () => {
@@ -52,5 +53,47 @@ describe("descricao no lancamento", () => {
     expect(toCostEntry("x", { description: "nota" }).description).toBe("nota");
     expect(toCostEntry("x", {}).description).toBe("");
     expect(toCostEntry("x", { description: 42 }).description).toBe("");
+  });
+});
+
+describe("recorrencias", () => {
+  it("toRecurringCost converte cursor, inicio e padroes seguros", () => {
+    expect(
+      toRecurringCost("r1", {
+        accountName: "Aluguel",
+        amount: 2000,
+        costType: "variavel",
+        category: "moradia",
+        dayOfMonth: 5,
+        startYear: 2026,
+        startMonth: 9,
+        active: false,
+        lastGeneratedYear: 2026,
+        lastGeneratedMonth: 11,
+      }),
+    ).toEqual({
+      id: "r1",
+      accountName: "Aluguel",
+      amount: 2000,
+      costType: "variavel",
+      category: "moradia",
+      description: "",
+      dayOfMonth: 5,
+      start: { year: 2026, month: 9 },
+      active: false,
+      lastGenerated: { year: 2026, month: 11 },
+    });
+
+    expect(toRecurringCost("r2", { startYear: 2026, startMonth: 1 })).toMatchObject({
+      costType: "fixo",
+      category: "outros",
+      active: true,
+      lastGenerated: null,
+    });
+  });
+
+  it("toCostEntry le recurringId somente quando presente", () => {
+    expect(toCostEntry("rec-r1-2026-11", { recurringId: "r1" }).recurringId).toBe("r1");
+    expect(toCostEntry("c1", {})).not.toHaveProperty("recurringId");
   });
 });

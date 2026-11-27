@@ -4,6 +4,7 @@ import {
   HouseIcon,
   type LucideIcon,
   PiggyBankIcon,
+  RepeatIcon,
   TagsIcon,
   TrendingUpIcon,
   UsersIcon,
@@ -26,6 +27,7 @@ export const ROUTES = {
   evolution: "/evolution",
   categories: "/categories",
   import: "/import",
+  recurring: "/recurring",
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;
@@ -69,6 +71,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     path: ROUTES.evolution,
     icon: TrendingUpIcon,
     keepsCompetence: true,
+  },
+  {
+    key: "recurring",
+    label: "Recorrentes",
+    path: ROUTES.recurring,
+    icon: RepeatIcon,
   },
   {
     key: "import",
