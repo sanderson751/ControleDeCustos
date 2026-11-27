@@ -1,5 +1,6 @@
 import {
   ChartColumnIcon,
+  FileUpIcon,
   HouseIcon,
   type LucideIcon,
   PiggyBankIcon,
@@ -24,6 +25,7 @@ export const ROUTES = {
   budgets: "/budgets",
   evolution: "/evolution",
   categories: "/categories",
+  import: "/import",
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;
@@ -67,6 +69,13 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     path: ROUTES.evolution,
     icon: TrendingUpIcon,
     keepsCompetence: true,
+  },
+  {
+    key: "import",
+    label: "Importar extrato",
+    path: ROUTES.import,
+    icon: FileUpIcon,
+    visibleTo: ["admin", "standard"],
   },
   {
     key: "categories",

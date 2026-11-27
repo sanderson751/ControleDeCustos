@@ -14,6 +14,7 @@ describe("navigation", () => {
       "costs",
       "budgets",
       "evolution",
+      "import",
       "categories",
       "reports",
       "userProfiles",
@@ -23,11 +24,15 @@ describe("navigation", () => {
       "costs",
       "budgets",
       "evolution",
+      "import",
       "categories",
       "reports",
     ]);
     expect(
       getNavigationForRole("guest").some((item) => item.key === "userProfiles"),
+    ).toBe(false);
+    expect(
+      getNavigationForRole("guest").some((item) => item.key === "import"),
     ).toBe(false);
   });
 
@@ -39,7 +44,7 @@ describe("navigation", () => {
   });
 
   it("preserva a competencia apenas nos itens que trabalham por mes", () => {
-    const [home, , budgets, , categories, reports] = getNavigationForRole("standard");
+    const [home, , budgets, , importItem, categories, reports] = getNavigationForRole("standard");
     expect(buildNavigationTarget(home, "?mes=2026-02")).toBe("/home?mes=2026-02");
     expect(buildNavigationTarget(budgets, "?mes=2026-02&x=1")).toBe(
       "/budgets?mes=2026-02",
@@ -47,6 +52,7 @@ describe("navigation", () => {
     expect(buildNavigationTarget(home, "")).toBe("/home");
     expect(buildNavigationTarget(reports, "?mes=2026-02")).toBe("/reports");
     expect(buildNavigationTarget(categories, "?mes=2026-02")).toBe("/categories");
+    expect(buildNavigationTarget(importItem, "?mes=2026-02")).toBe("/import");
   });
 
   it("withCompetence omite o parametro no mes atual", () => {

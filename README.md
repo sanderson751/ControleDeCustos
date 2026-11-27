@@ -39,6 +39,7 @@ SPA estática publicada no **Firebase Hosting** (plano gratuito Spark), sem serv
 - Dashboard por competência (navegação entre meses) com totais fixos/variáveis, consolidado por categoria e alertas de orçamento.
 - Cadastro rápido com categoria e descrição opcional, listagem com busca (conta ou descrição), filtros (frente e categoria) e paginação, edição e exclusão (com confirmação) de custos.
 - Parcelamento de custos fixos (um lançamento por competência).
+- Importação de extrato ou fatura em CSV (processada no navegador) com detecção de colunas, sugestão de categoria e aviso de duplicados.
 - Orçamento por categoria só no mês ou recorrente ("este mês em diante", com histórico de vigências), com consumo, status e cópia do mês anterior.
 - Alertas ao atingir 80% e ao estourar 100% do orçamento (no Início e ao cadastrar um custo).
 - Evolução mensal: gráfico de gasto x orçamento por mês (6 ou 12 meses), filtros por categoria e frente, indicadores do período e visão em tabela.

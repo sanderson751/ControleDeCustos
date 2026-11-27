@@ -3,8 +3,6 @@ import {
   query,
   serverTimestamp,
   where,
-  type WriteBatch,
-  writeBatch,
 } from "firebase/firestore";
 import type {
   BudgetLimit,
@@ -13,13 +11,12 @@ import type {
 } from "@/domain/entities/budget";
 import type { Competence, CostCategory } from "@/domain/entities/cost";
 import { buildBudgetDocId } from "@/domain/rules/budgetRules";
-import { isDefaultCategory } from "@/domain/rules/categoryRules";
 import {
   buildMonthBudgetState,
   hasMonthBudgetChanges,
   type MonthBudgetChangePlan,
 } from "@/domain/rules/recurringBudgetRules";
-import { db } from "@/lib/firebase";
+import { type ChunkedWrite, commitInChunks } from "@/services/batchChunks";
 import { toBudgetLimit, toRecurringBudget } from "@/services/converters";
 import {
   budgetLimitDocRef,
@@ -70,48 +67,6 @@ export async function loadMonthBudgetState(
   return buildMonthBudgetState(monthLimits, recurring, competence);
 }
 
-type BudgetWrite = {
-  category: CostCategory;
-  write: (batch: WriteBatch) => void;
-};
-
-/**
- * Cada gravacao com categoria personalizada custa um exists() nas regras, e uma
- * requisicao admite poucos acessos a documentos. Limita as personalizadas
- * distintas por batch (padrao nao consomem acesso).
- */
-export const MAX_CUSTOM_CATEGORIES_PER_BATCH = 10;
-
-async function commitInChunks(operations: readonly BudgetWrite[]) {
-  const chunks: BudgetWrite[][] = [];
-  let current: BudgetWrite[] = [];
-  let customs = new Set<CostCategory>();
-
-  for (const operation of operations) {
-    const isNewCustom =
-      !isDefaultCategory(operation.category) && !customs.has(operation.category);
-
-    if (isNewCustom && customs.size >= MAX_CUSTOM_CATEGORIES_PER_BATCH) {
-      chunks.push(current);
-      current = [];
-      customs = new Set();
-    }
-
-    if (!isDefaultCategory(operation.category)) {
-      customs.add(operation.category);
-    }
-    current.push(operation);
-  }
-
-  chunks.push(current);
-
-  for (const chunk of chunks) {
-    const batch = writeBatch(db);
-    chunk.forEach((operation) => operation.write(batch));
-    await batch.commit();
-  }
-}
-
 /**
  * Aplica excecoes mensais e vigencias recorrentes. Em um unico batch atomico
  * no caso comum; com muitas categorias personalizadas, em lotes sequenciais.
@@ -125,7 +80,7 @@ export async function applyMonthBudgetChanges(
     return;
   }
 
-  const operations: BudgetWrite[] = [];
+  const operations: ChunkedWrite[] = [];
   const idFor = (category: CostCategory) =>
     buildBudgetDocId(year, month, category);
 

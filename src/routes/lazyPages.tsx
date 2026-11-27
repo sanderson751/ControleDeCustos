@@ -9,6 +9,7 @@ export const CostEditPage = lazy(() => import("@/pages/CostEditPage"));
 export const BudgetsPage = lazy(() => import("@/pages/BudgetsPage"));
 export const EvolutionPage = lazy(() => import("@/pages/EvolutionPage"));
 export const CategoriesPage = lazy(() => import("@/pages/CategoriesPage"));
+export const ImportPage = lazy(() => import("@/pages/ImportPage"));
 export const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 export const UserProfilesPage = lazy(() => import("@/pages/UserProfilesPage"));
 

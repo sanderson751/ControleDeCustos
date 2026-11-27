@@ -695,3 +695,35 @@ describe("batch de orcamentos com muitas categorias personalizadas", () => {
     await assertFails(commitBudgets(ids));
   });
 });
+
+describe("importacao de extrato (lote de costEntries)", () => {
+  it("lote com 10 categorias personalizadas distintas e aceito; guest e negado", async () => {
+    const ids = Array.from({ length: 10 }, (_, index) => `imp${index}`);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      for (const id of ids) {
+        await setDoc(doc(context.firestore(), `users/ana/categories/${id}`), {
+          userId: "ana",
+          name: id,
+          archived: false,
+        });
+      }
+    });
+
+    const db = as("ana");
+    const batch = writeBatch(db);
+    ids.forEach((id, index) => {
+      batch.set(doc(db, `users/ana/costEntries/imp-${index}`), {
+        ...validCost,
+        category: id,
+        description: "Importado de extrato.csv",
+      });
+      batch.set(doc(db, `users/ana/costEntries/imp-padrao-${index}`), validCost);
+    });
+    await assertSucceeds(batch.commit());
+
+    const guestDb = as("gui");
+    const guestBatch = writeBatch(guestDb);
+    guestBatch.set(doc(guestDb, "users/gui/costEntries/imp-g"), { ...validCost, userId: "gui" });
+    await assertFails(guestBatch.commit());
+  });
+});
