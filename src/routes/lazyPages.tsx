@@ -12,6 +12,8 @@ export const CategoriesPage = lazy(() => import("@/pages/CategoriesPage"));
 export const ImportPage = lazy(() => import("@/pages/ImportPage"));
 export const RecurringPage = lazy(() => import("@/pages/RecurringPage"));
 export const GoalsPage = lazy(() => import("@/pages/GoalsPage"));
+export const GroceryPage = lazy(() => import("@/pages/GroceryPage"));
+export const GroceryListPage = lazy(() => import("@/pages/GroceryListPage"));
 export const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 export const UserProfilesPage = lazy(() => import("@/pages/UserProfilesPage"));
 

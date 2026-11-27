@@ -210,6 +210,85 @@ service cloud.firestore {
         && data.get('updatedAt', request.time) == request.time;
     }
 
+    function isPriceOrNull(value) {
+      return value == null || (value is number && value > 0 && value <= 1000000000);
+    }
+
+    // Produto do catalogo de mercado (historico de preco resumido).
+    function isValidGroceryProduct(data) {
+      return data.keys().hasOnly(['userId', 'name', 'normalizedName', 'unit', 'lastUnitPrice',
+          'previousUnitPrice', 'lastPurchasedAt', 'lastStore', 'purchaseCount', 'avgIntervalDays',
+          'intervalCount', 'aliases', 'createdAt', 'updatedAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 80
+        && data.normalizedName is string
+        && data.normalizedName.size() > 0
+        && data.normalizedName.size() <= 80
+        && data.unit in ['un', 'kg', 'g', 'l', 'ml', 'pct']
+        && isPriceOrNull(data.get('lastUnitPrice', null))
+        && isPriceOrNull(data.get('previousUnitPrice', null))
+        && (data.get('lastPurchasedAt', null) == null || data.lastPurchasedAt is timestamp)
+        && data.get('lastStore', '') is string
+        && data.get('lastStore', '').size() <= 60
+        && data.get('purchaseCount', 0) is int
+        && data.get('purchaseCount', 0) >= 0
+        && (data.get('avgIntervalDays', null) == null
+          || (data.avgIntervalDays is number && data.avgIntervalDays >= 0 && data.avgIntervalDays <= 3650))
+        && data.get('intervalCount', 0) is int
+        && data.get('intervalCount', 0) >= 0
+        && data.get('aliases', []) is list
+        && data.get('aliases', []).size() <= 10;
+    }
+
+    function isValidGroceryList(data) {
+      return data.keys().hasOnly(['userId', 'name', 'status', 'items', 'purchaseId',
+          'paidTotal', 'completedAt', 'createdAt', 'updatedAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 60
+        && data.status in ['aberta', 'concluida']
+        && data.items is list
+        && data.items.size() <= 150
+        && (data.get('purchaseId', null) == null
+          || (data.purchaseId is string && data.purchaseId.size() <= 40))
+        && (data.get('completedAt', null) == null || data.completedAt is timestamp)
+        && isPriceOrNull(data.get('paidTotal', null))
+        // Lista aberta nao carrega dados de conclusao.
+        && (data.status == 'concluida'
+          || (data.get('purchaseId', null) == null && data.get('paidTotal', null) == null));
+    }
+
+    // Compra registrada ao concluir a lista (imutavel).
+    function isValidGroceryPurchase(data) {
+      return data.keys().hasOnly(['userId', 'listId', 'store', 'purchasedAt', 'total',
+          'costEntryId', 'items', 'receiptKey', 'ocrConfidence', 'createdAt'])
+        && (data.get('listId', null) == null
+          || (data.listId is string && data.listId.size() <= 40))
+        && data.store is string
+        && data.store.size() > 0
+        && data.store.size() <= 60
+        && data.purchasedAt is timestamp
+        && data.total is number
+        && data.total > 0
+        && data.total <= 1000000000
+        && data.costEntryId is string
+        && data.costEntryId.size() <= 40
+        && data.items is list
+        && data.items.size() <= 150
+        && (data.get('receiptKey', null) == null
+          || (data.receiptKey is string && data.receiptKey.size() <= 64))
+        && (data.get('ocrConfidence', null) == null
+          || (data.ocrConfidence is number && data.ocrConfidence >= 0 && data.ocrConfidence <= 100));
+    }
+
+    // Conclusao: compra NOVA, da propria lista, gravada no mesmo lote.
+    function isNewPurchaseOf(userId, listId, purchaseId) {
+      return purchaseId is string
+        && !exists(/databases/$(database)/documents/users/$(userId)/groceryPurchases/$(purchaseId))
+        && getAfter(/databases/$(database)/documents/users/$(userId)/groceryPurchases/$(purchaseId)).data.listId == listId;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
@@ -255,6 +334,63 @@ service cloud.firestore {
           && isValidCategoryDoc(request.resource.data);
 
         allow delete: if false;
+      }
+
+      match /groceryProducts/{productId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidGroceryProduct(request.resource.data)
+          && hasServerTimestamps(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && !changedKeys().hasAny(['userId', 'createdAt'])
+          && isValidGroceryProduct(request.resource.data);
+
+        allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
+      // Lista concluida e somente leitura (reaproveitar = nova lista).
+      match /groceryLists/{listId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && request.resource.data.status == 'aberta'
+          && request.resource.data.get('purchaseId', null) == null
+          && isValidGroceryList(request.resource.data)
+          && hasServerTimestamps(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && resource.data.status == 'aberta'
+          && !changedKeys().hasAny(['userId', 'createdAt'])
+          && isValidGroceryList(request.resource.data)
+          // Concluir exige a compra registrada no mesmo lote.
+          && (request.resource.data.status == 'aberta'
+            || isNewPurchaseOf(userId, listId, request.resource.data.purchaseId));
+
+        allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
+      match /groceryPurchases/{purchaseId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidGroceryPurchase(request.resource.data)
+          && request.resource.data.get('createdAt', request.time) == request.time
+          // O lancamento de mercado e gravado no mesmo lote.
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/costEntries/$(request.resource.data.costEntryId));
+
+        allow update: if false;
+
+        allow delete: if isOwner(userId) && canWriteCosts();
       }
 
       match /savingsGoals/{goalId} {

@@ -13,6 +13,9 @@ import { db } from "@/lib/firebase";
  * users/{uid}/recurringCosts/{recurringId}
  * users/{uid}/savingsGoals/{goalId}
  * users/{uid}/goalContributions/{contributionId}
+ * users/{uid}/groceryProducts/{productId}
+ * users/{uid}/groceryLists/{listId}
+ * users/{uid}/groceryPurchases/{purchaseId}
  */
 export const USERS_COLLECTION = "users";
 export const SETTINGS_COLLECTION = "settings";
@@ -78,3 +81,22 @@ export const goalContributionsCollectionRef = (uid: string) =>
 
 export const goalContributionDocRef = (uid: string, contributionId: string) =>
   doc(db, USERS_COLLECTION, uid, GOAL_CONTRIBUTIONS_COLLECTION, contributionId);
+
+export const GROCERY_PRODUCTS_COLLECTION = "groceryProducts";
+export const GROCERY_LISTS_COLLECTION = "groceryLists";
+export const GROCERY_PURCHASES_COLLECTION = "groceryPurchases";
+
+export const groceryProductsCollectionRef = (uid: string) =>
+  collection(db, USERS_COLLECTION, uid, GROCERY_PRODUCTS_COLLECTION);
+
+export const groceryProductDocRef = (uid: string, productId: string) =>
+  doc(db, USERS_COLLECTION, uid, GROCERY_PRODUCTS_COLLECTION, productId);
+
+export const groceryListsCollectionRef = (uid: string) =>
+  collection(db, USERS_COLLECTION, uid, GROCERY_LISTS_COLLECTION);
+
+export const groceryListDocRef = (uid: string, listId: string) =>
+  doc(db, USERS_COLLECTION, uid, GROCERY_LISTS_COLLECTION, listId);
+
+export const groceryPurchasesCollectionRef = (uid: string) =>
+  collection(db, USERS_COLLECTION, uid, GROCERY_PURCHASES_COLLECTION);

@@ -30,12 +30,17 @@ export function createFirestoreMock() {
     collection: vi.fn((base: unknown, ...segments: string[]) => ({
       path: pathOf(base, segments),
     })),
+    // Como no SDK, a referencia expoe o id (ultimo segmento do caminho). Nao
+    // enumeravel: asserts existentes que comparam { path } continuam validos.
     doc: vi.fn((base: unknown, ...segments: string[]) => {
       if (segments.length === 0) {
         autoId += 1;
-        return { path: pathOf(base, [`auto-${autoId}`]) };
       }
-      return { path: pathOf(base, segments) };
+      const path = pathOf(base, segments.length ? segments : [`auto-${autoId}`]);
+      return Object.defineProperty({ path }, "id", {
+        value: path.split("/").pop(),
+        enumerable: false,
+      });
     }),
     query: vi.fn((ref: Ref, ...constraints: unknown[]) => ({
       ref,

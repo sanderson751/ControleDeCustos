@@ -11,6 +11,8 @@ import {
   ImportPage,
   RecurringPage,
   GoalsPage,
+  GroceryListPage,
+  GroceryPage,
   CostEditPage,
   CostsPage,
   EvolutionPage,
@@ -80,6 +82,22 @@ export const appRoutes: RouteObject[] = [
             element: (
               <PageSuspense>
                 <EvolutionPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: ROUTES.grocery,
+            element: (
+              <PageSuspense>
+                <GroceryPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: "/grocery/:listId",
+            element: (
+              <PageSuspense>
+                <GroceryListPage />
               </PageSuspense>
             ),
           },

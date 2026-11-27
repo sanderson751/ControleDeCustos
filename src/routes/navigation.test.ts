@@ -14,6 +14,7 @@ describe("navigation", () => {
       "costs",
       "budgets",
       "evolution",
+      "grocery",
       "goals",
       "recurring",
       "import",
@@ -26,6 +27,7 @@ describe("navigation", () => {
       "costs",
       "budgets",
       "evolution",
+      "grocery",
       "goals",
       "recurring",
       "import",
@@ -48,7 +50,7 @@ describe("navigation", () => {
   });
 
   it("preserva a competencia apenas nos itens que trabalham por mes", () => {
-    const [home, , budgets, , goalsItem, recurringItem, importItem, categories, reports] = getNavigationForRole("standard");
+    const [home, , budgets, , groceryItem, goalsItem, recurringItem, importItem, categories, reports] = getNavigationForRole("standard");
     expect(buildNavigationTarget(home, "?mes=2026-02")).toBe("/home?mes=2026-02");
     expect(buildNavigationTarget(budgets, "?mes=2026-02&x=1")).toBe(
       "/budgets?mes=2026-02",
@@ -59,6 +61,7 @@ describe("navigation", () => {
     expect(buildNavigationTarget(importItem, "?mes=2026-02")).toBe("/import");
     expect(buildNavigationTarget(recurringItem, "?mes=2026-02")).toBe("/recurring");
     expect(buildNavigationTarget(goalsItem, "?mes=2026-02")).toBe("/goals");
+    expect(buildNavigationTarget(groceryItem, "?mes=2026-02")).toBe("/grocery");
   });
 
   it("withCompetence omite o parametro no mes atual", () => {
