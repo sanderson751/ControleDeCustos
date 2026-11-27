@@ -134,6 +134,12 @@ export default function ReportsPage() {
   }
 
   async function handleExport(type: ExportType) {
+    // Sem sinal, a consulta vem do cache do aparelho e pode estar incompleta.
+    if (!navigator.onLine) {
+      notify("warning", "Sem conexão: conecte-se para exportar o relatório completo.");
+      return;
+    }
+
     if (categories.isLoading || categories.error) {
       notify(
         "warning",

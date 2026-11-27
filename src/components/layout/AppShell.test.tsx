@@ -1,10 +1,10 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { AppShell } from "@/components/layout/AppShell";
 import type { UserRole } from "@/domain/entities/user";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
-import { logout } from "@/services/authService";
+import { hasUnsyncedChanges, logout } from "@/services/authService";
 import {
   getUiPreferences,
   updateUiPreferences,
@@ -19,7 +19,7 @@ import { renderWithRouter } from "@/test/render";
 
 vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
 vi.mock("@/lib/notify", () => ({ notify: vi.fn() }));
-vi.mock("@/services/authService", () => ({ logout: vi.fn() }));
+vi.mock("@/services/authService", () => ({ logout: vi.fn(), hasUnsyncedChanges: vi.fn(async () => false) }));
 vi.mock("@/services/categoryService", () => ({
   subscribeToCategories: vi.fn((_userId: string, onData: (items: never[]) => void) => {
     onData([]);
@@ -134,6 +134,22 @@ describe("AppShell", () => {
         "Não foi possível sair da conta. Tente novamente.",
       ),
     );
+  });
+});
+
+describe("AppShell - sair com alteracoes nao sincronizadas", () => {
+  it("pede confirmacao antes de apagar o que ainda nao sincronizou", async () => {
+    vi.mocked(hasUnsyncedChanges).mockResolvedValueOnce(true);
+    vi.mocked(logout).mockResolvedValue(undefined);
+    const { user } = setup("standard");
+
+    await user.click(screen.getByRole("button", { name: "Menu do usuário" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Sair do sistema/ }));
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Sair sem sincronizar?" });
+    expect(logout).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Sair mesmo assim" }));
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
   });
 });
 

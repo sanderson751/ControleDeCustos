@@ -338,7 +338,23 @@ export function CompleteListDialog({ userId, list, products, forecast, onClose }
         ...validation.value,
         receipt: receipt ? receiptCompletionFromReview(receipt.lines, key, receipt.confidence) : undefined,
       });
-      await completeList(userId, list, plan);
+      const written = completeList(userId, list, plan);
+
+      // Sem sinal: o lote fica na fila do aparelho e sincroniza depois (o
+      // commit so termina quando o servidor confirmar).
+      if (!navigator.onLine) {
+        written.catch((error: unknown) =>
+          notify("error", friendlyFirestoreErrorMessage(error, "A compra salva sem conexão não pôde ser sincronizada.")),
+        );
+        notify(
+          "warning",
+          `Sem conexão: a compra de ${formatCurrencyBRL(plan.cost.amount)} foi salva no aparelho e o lançamento sincroniza quando a conexão voltar.`,
+        );
+        onClose();
+        return;
+      }
+
+      await written;
       const updatedCount = plan.productUpdates.length + plan.newProducts.length;
       notify(
         plan.droppedExtras ? "warning" : "success",

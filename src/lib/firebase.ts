@@ -1,6 +1,15 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from "firebase/auth";
-import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import {
+  clearIndexedDbPersistence,
+  connectFirestoreEmulator,
+  type Firestore,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  terminate,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -24,7 +33,24 @@ export const firebaseApp = getApps().length
 export const auth = getAuth(firebaseApp);
 auth.languageCode = "pt-BR";
 
-export const db = getFirestore(firebaseApp);
+/**
+ * Cache persistente (IndexedDB) compartilhado entre abas: o app abre os dados
+ * ja vistos sem sinal (modo mercado) e as gravacoes feitas offline ficam na
+ * fila mesmo se a pagina for fechada, sincronizando quando a conexao volta.
+ * Sem IndexedDB (navegacao privada antiga) o SDK cai para o cache em memoria.
+ */
+function createFirestore(): Firestore {
+  try {
+    return initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    // Ja inicializado (recarga do modulo em dev).
+    return getFirestore(firebaseApp);
+  }
+}
+
+export const db = createFirestore();
 
 /**
  * Testes E2E (npm run test:e2e): Auth e Firestore nos emuladores locais.
@@ -33,6 +59,17 @@ export const db = getFirestore(firebaseApp);
 if (import.meta.env.VITE_USE_EMULATORS === "true") {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}
+
+/**
+ * Ao sair da conta: apaga o cache local (dados do usuario no IndexedDB, num
+ * aparelho que pode ser compartilhado). A instancia encerrada nao volta: o
+ * app e recarregado no login quando a sessao termina (AuthProvider), nesta
+ * e nas outras abas (que tambem sao encerradas pela exclusao do cache).
+ */
+export async function clearLocalCache(): Promise<void> {
+  await terminate(db);
+  await clearIndexedDbPersistence(db);
 }
 
 export const googleProvider = new GoogleAuthProvider();

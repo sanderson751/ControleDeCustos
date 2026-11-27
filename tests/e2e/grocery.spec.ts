@@ -1,4 +1,4 @@
-import { listDocuments } from "./support/emulators";
+import { listDocuments, setDocument } from "./support/emulators";
 import { expect, login, test } from "./support/app";
 
 test.describe("lista de mercado", () => {
@@ -103,5 +103,95 @@ Emissao ${today} 10:00:00</pre>
     const [receiptKey] = await listDocuments(`users/${user.uid}/groceryReceiptKeys`);
     expect(receiptKey).toMatchObject({ purchaseId: expect.any(String), total: 60 });
     expect(Number(purchase.ocrConfidence)).toBeGreaterThan(50);
+  });
+});
+
+test.describe("lista de mercado — variação, reposição e modo mercado", () => {
+  test("variação de preço, sugestão de reposição e marcação sem sinal no modo mercado", async ({
+    page,
+    context,
+    seedUser,
+  }) => {
+    // Ao voltar a conexao, o SDK reconecta com espera crescente (ate ~1 min).
+    test.setTimeout(180_000);
+    const user = await seedUser("standard");
+    const day = 24 * 60 * 60 * 1000;
+    const product = (name: string, data: Record<string, unknown>) => ({
+      userId: user.uid,
+      name,
+      normalizedName: name.toLowerCase(),
+      unit: "un",
+      lastStore: "Assaí",
+      aliases: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...data,
+    });
+    await setDocument(`users/${user.uid}/groceryProducts/arroz`, product("Arroz 5kg", {
+      lastUnitPrice: 28,
+      previousUnitPrice: 25,
+      lastPurchasedAt: new Date(Date.now() - 2 * day),
+      purchaseCount: 2,
+      avgIntervalDays: 30,
+      intervalCount: 1,
+    }));
+    await setDocument(`users/${user.uid}/groceryProducts/leite`, product("Leite", {
+      lastUnitPrice: 4.79,
+      previousUnitPrice: 4.99,
+      lastPurchasedAt: new Date(Date.now() - 9 * day),
+      purchaseCount: 4,
+      avgIntervalDays: 7,
+      intervalCount: 3,
+    }));
+    await setDocument(`users/${user.uid}/groceryLists/l1`, {
+      userId: user.uid,
+      name: "Feira",
+      status: "aberta",
+      items: [{ id: "i1", productId: "arroz", name: "Arroz 5kg", quantity: 2, checked: false }],
+      purchaseId: null,
+      paidTotal: null,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await login(page, user);
+    await page.getByRole("link", { name: "Mercado", exact: true }).click();
+    await expect(page.getByRole("table", { name: "Histórico de preços" })).toContainText("+12%");
+    await page.getByRole("link", { name: "Abrir lista" }).click();
+
+    // Variação ao lado do previsto e sugestão de reposição do leite.
+    await expect(page.getByRole("row", { name: /Arroz 5kg/ })).toContainText("+12%");
+    const restock = page.getByRole("region", { name: "Talvez esteja acabando" });
+    await expect(restock).toContainText("Leite");
+    await restock.getByRole("button", { name: "Adicionar Leite à lista" }).click();
+    await expect(page.getByRole("row", { name: /Leite/ })).toBeVisible();
+
+    await page.getByRole("link", { name: "Modo mercado" }).click();
+    const summary = page.getByRole("status", { name: "Resumo do carrinho" });
+    await page.getByRole("checkbox", { name: /Arroz 5kg/ }).click();
+    await expect(summary).toContainText("R$ 56,00");
+
+    // Sem sinal no corredor: marca e sincroniza quando a conexão volta.
+    await context.setOffline(true);
+    await expect(page.getByText(/Sem conexão/)).toBeVisible();
+    await page.getByRole("checkbox", { name: /Leite/ }).click();
+    await expect(page.getByRole("checkbox", { name: /Leite/ })).toBeChecked();
+    await expect(summary).toContainText("R$ 60,79");
+    await context.setOffline(false);
+    await expect(page.getByText(/Sem conexão/)).toHaveCount(0);
+
+    await expect
+      .poll(
+        async () => {
+          const [list] = await listDocuments(`users/${user.uid}/groceryLists`);
+          return (list.items as Array<{ name: string; checked: boolean }>).map((item) => [item.name, item.checked]);
+        },
+        { timeout: 90_000 },
+      )
+      .toEqual([
+        ["Arroz 5kg", true],
+        ["Leite", true],
+      ]);
   });
 });

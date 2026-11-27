@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import type { UserProfile } from "@/domain/entities/user";
+import { reloadToLogin } from "@/lib/appReload";
 import { subscribeToAuthState } from "@/services/authService";
 import {
   ensureUserProfile,
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
     let activeUid: string | null = null;
+    let hadSession = false;
 
     const unsubscribeAuth = subscribeToAuthState((user) => {
       unsubscribeProfile?.();
@@ -56,9 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeUid = user?.uid ?? null;
 
       if (!user) {
+        // Fim da sessao (nesta ou em outra aba): o cache local foi apagado e o
+        // Firestore encerrado; so uma pagina nova volta a funcionar.
+        if (hadSession) {
+          reloadToLogin();
+        }
         setState({ ...INITIAL_STATE, status: "unauthenticated" });
         return;
       }
+
+      hadSession = true;
 
       setState({ ...INITIAL_STATE, firebaseUser: user });
 

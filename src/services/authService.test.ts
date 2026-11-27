@@ -1,6 +1,8 @@
 import * as firebaseAuth from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { waitForPendingWrites } from "firebase/firestore";
+import { auth, clearLocalCache } from "@/lib/firebase";
 import {
+  hasUnsyncedChanges,
   loginWithEmailAndPassword,
   loginWithGoogle,
   logout,
@@ -17,6 +19,8 @@ vi.mock("firebase/auth", () => ({
   signOut: vi.fn(async () => undefined),
   updateProfile: vi.fn(async () => undefined),
 }));
+
+vi.mock("firebase/firestore", () => ({ waitForPendingWrites: vi.fn(async () => undefined) }));
 
 vi.mock("@/services/userService", () => ({
   ensureUserProfile: vi.fn(async () => undefined),
@@ -93,5 +97,37 @@ describe("authService", () => {
 
     expect(mockedUserService.markUserLogout).toHaveBeenCalledWith("uid-1");
     expect(mockedAuth.signOut).toHaveBeenCalledWith(auth);
+    // Cache local (IndexedDB) apagado antes de encerrar a sessao (o fim da sessao recarrega o app).
+    expect(clearLocalCache).toHaveBeenCalled();
+    expect(vi.mocked(clearLocalCache).mock.invocationCallOrder[0]).toBeLessThan(
+      mockedAuth.signOut.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("logout sem sinal nao trava esperando o registro de saida", async () => {
+    vi.useFakeTimers();
+    (auth as { currentUser: unknown }).currentUser = fakeUser;
+    mockedUserService.markUserLogout.mockReturnValueOnce(new Promise(() => undefined));
+
+    const done = logout();
+    await vi.advanceTimersByTimeAsync(3000);
+    await done;
+
+    expect(mockedAuth.signOut).toHaveBeenCalledWith(auth);
+    vi.useRealTimers();
+  });
+
+  it("falha ao limpar o cache nao impede a saida", async () => {
+    vi.mocked(clearLocalCache).mockRejectedValueOnce(new Error("failed-precondition"));
+    await logout();
+    expect(mockedAuth.signOut).toHaveBeenCalled();
+  });
+
+  it("detecta alteracoes ainda nao sincronizadas", async () => {
+    vi.mocked(waitForPendingWrites).mockResolvedValueOnce(undefined);
+    await expect(hasUnsyncedChanges(50)).resolves.toBe(false);
+
+    vi.mocked(waitForPendingWrites).mockReturnValueOnce(new Promise(() => undefined));
+    await expect(hasUnsyncedChanges(10)).resolves.toBe(true);
   });
 });

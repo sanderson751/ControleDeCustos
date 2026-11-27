@@ -33,6 +33,7 @@ export const ROUTES = {
   goals: "/goals",
   grocery: "/grocery",
   groceryList: (listId: string) => `/grocery/${encodeURIComponent(listId)}`,
+  groceryShop: (listId: string) => `/grocery/${encodeURIComponent(listId)}/shop`,
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;

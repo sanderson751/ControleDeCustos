@@ -1,6 +1,7 @@
 import { CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { PriceHistorySection } from "@/components/grocery/PriceHistorySection";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { PageHeader } from "@/components/shared/PageHeader";
 import {
@@ -262,6 +263,8 @@ export default function GroceryPage() {
               </ul>
             )}
           </section>
+
+          <PriceHistorySection products={products} />
         </>
       )}
 

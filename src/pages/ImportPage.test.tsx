@@ -126,11 +126,11 @@ describe("ImportPage", () => {
         },
       ]),
     );
-    expect(mockedNotify).toHaveBeenCalledWith(
-      "success",
-      "1 lançamento importado com sucesso.",
+    // Aviso e navegacao vem depois da gravacao (assincronos): sob carga podem atrasar.
+    await waitFor(() =>
+      expect(mockedNotify).toHaveBeenCalledWith("success", "1 lançamento importado com sucesso."),
     );
-    expect(screen.getByTestId("location")).toHaveTextContent("/costs?mes=2026-04");
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/costs?mes=2026-04"));
   });
 
   it("fatura de cartao: trocar o sinal torna as compras positivas selecionaveis", async () => {
