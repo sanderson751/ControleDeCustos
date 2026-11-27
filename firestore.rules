@@ -48,14 +48,31 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    function isValidCategory(category) {
+    function isDefaultCategory(category) {
       return category in [
         'moradia', 'alimentacao', 'transporte', 'saude', 'educacao', 'lazer', 'outros'
       ];
     }
 
-    function isValidBudget(data) {
-      return isValidCategory(data.category)
+    // Categoria padrao ou personalizada existente do PROPRIO usuario.
+    function isValidCategory(userId, category) {
+      return category is string
+        && (isDefaultCategory(category)
+          || (category.matches('^[A-Za-z0-9]{1,40}$')
+            && exists(/databases/$(database)/documents/users/$(userId)/categories/$(category))));
+    }
+
+    function isValidCategoryDoc(data) {
+      return data.keys().hasOnly(['userId', 'name', 'archived', 'createdAt', 'updatedAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 40
+        && data.name.matches('.*[^ ].*')
+        && data.archived is bool;
+    }
+
+    function isValidBudget(userId, data) {
+      return isValidCategory(userId, data.category)
         && data.year is int
         && data.year >= 2000
         && data.year <= 2100
@@ -68,8 +85,8 @@ service cloud.firestore {
     }
 
     // Vigencia recorrente: limit null encerra a recorrencia a partir do mes.
-    function isValidRecurringBudget(data) {
-      return isValidCategory(data.category)
+    function isValidRecurringBudget(userId, data) {
+      return isValidCategory(userId, data.category)
         && data.year is int
         && data.year >= 2000
         && data.year <= 2100
@@ -86,8 +103,8 @@ service cloud.firestore {
         + string(data.month) + '-' + data.category;
     }
 
-    function isValidCost(data) {
-      return isValidCategory(data.category)
+    function isValidCost(userId, data) {
+      return isValidCategory(userId, data.category)
         && data.accountName is string
         && data.accountName.size() > 0
         && data.accountName.size() <= 200
@@ -135,19 +152,36 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // Categorias personalizadas: nunca excluidas (arquivar preserva o historico).
+      match /categories/{categoryId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidCategoryDoc(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && !changedKeys().hasAny(['userId', 'createdAt'])
+          && isValidCategoryDoc(request.resource.data);
+
+        allow delete: if false;
+      }
+
       match /costEntries/{entryId} {
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.userId == userId
-          && isValidCost(request.resource.data);
+          && isValidCost(userId, request.resource.data);
 
         allow update: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.get('userId', userId) == userId
           && !changedKeys().hasAny(['userId', 'createdAt'])
-          && isValidCost(request.resource.data);
+          && isValidCost(userId, request.resource.data);
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }
@@ -159,13 +193,13 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.userId == userId
-          && isValidBudget(request.resource.data)
+          && isValidBudget(userId, request.resource.data)
           && budgetId == expectedBudgetId(request.resource.data);
 
         allow update: if isOwner(userId)
           && canWriteCosts()
           && !changedKeys().hasAny(['userId', 'year', 'month', 'category', 'createdAt'])
-          && isValidBudget(request.resource.data);
+          && isValidBudget(userId, request.resource.data);
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }
@@ -177,13 +211,13 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.userId == userId
-          && isValidRecurringBudget(request.resource.data)
+          && isValidRecurringBudget(userId, request.resource.data)
           && budgetId == expectedBudgetId(request.resource.data);
 
         allow update: if isOwner(userId)
           && canWriteCosts()
           && !changedKeys().hasAny(['userId', 'year', 'month', 'category', 'createdAt'])
-          && isValidRecurringBudget(request.resource.data);
+          && isValidRecurringBudget(userId, request.resource.data);
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }

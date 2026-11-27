@@ -3,6 +3,7 @@ import {
   HouseIcon,
   type LucideIcon,
   PiggyBankIcon,
+  TagsIcon,
   TrendingUpIcon,
   UsersIcon,
   WalletIcon,
@@ -22,6 +23,7 @@ export const ROUTES = {
   costEdit: (costId: string) => `/costs/${encodeURIComponent(costId)}/edit`,
   budgets: "/budgets",
   evolution: "/evolution",
+  categories: "/categories",
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;
@@ -65,6 +67,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     path: ROUTES.evolution,
     icon: TrendingUpIcon,
     keepsCompetence: true,
+  },
+  {
+    key: "categories",
+    label: "Categorias",
+    path: ROUTES.categories,
+    icon: TagsIcon,
   },
   {
     key: "reports",

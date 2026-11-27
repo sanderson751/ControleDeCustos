@@ -7,6 +7,7 @@ import {
 } from "@/routes/guards";
 import {
   BudgetsPage,
+  CategoriesPage,
   CostEditPage,
   CostsPage,
   EvolutionPage,
@@ -76,6 +77,14 @@ export const appRoutes: RouteObject[] = [
             element: (
               <PageSuspense>
                 <EvolutionPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: ROUTES.categories,
+            element: (
+              <PageSuspense>
+                <CategoriesPage />
               </PageSuspense>
             ),
           },

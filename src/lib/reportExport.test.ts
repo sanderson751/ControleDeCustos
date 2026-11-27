@@ -76,3 +76,14 @@ describe("neutralizeFormula (injecao de formulas no CSV)", () => {
     expect(csv).toContain('"\'=HYPERLINK(""http://x"")"');
   });
 });
+
+describe("rotulo de categoria personalizada", () => {
+  it("usa o catalogo informado e o rotulo padrao como fallback", () => {
+    const entry = makeCostEntry({ category: "pets1" });
+
+    expect(buildCsvContent([entry], (id) => (id === "pets1" ? "Pets" : id))).toContain(
+      '"Pets"',
+    );
+    expect(buildCsvContent([entry])).toContain('"Categoria removida"');
+  });
+});

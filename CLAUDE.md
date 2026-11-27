@@ -88,6 +88,7 @@ Ao alterar `firestore.rules`, `permissions.ts` ou o modelo de dados: atualize
 ```
 users/{uid}                        # perfil + role (admin|standard|guest)
 users/{uid}/settings/profile       # ui.theme, ui.sidebarCollapsed, currency, locale
+users/{uid}/categories/{categoryId}   # categoria personalizada: userId, name, archived (sem exclusao)
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
 users/{uid}/budgetLimits/{AAAA-MM-categoria}     # orçamento de um único mês (exceção)
@@ -95,7 +96,8 @@ users/{uid}/recurringBudgets/{AAAA-MM-categoria} # vigência recorrente a partir
 ```
 
 Categorias padrão (valores sem acento): `moradia, alimentacao, transporte, saude, educacao,
-lazer, outros`. Lançamentos legados sem categoria são lidos como `outros`. A competência
+lazer, outros`. Categorias personalizadas usam o id do documento em `categories` (validado nas
+regras com `exists()`) e nunca são excluídas, só arquivadas. Lançamentos legados sem categoria são lidos como `outros`. A competência
 visualizada em Início/Custos/Orçamentos fica na URL (`?mes=AAAA-MM`).
 
 Detalhes por feature em `specs/<feature>/firestore-structure.md`. Índices em `firestore.indexes.json`.

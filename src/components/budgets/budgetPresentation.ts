@@ -4,7 +4,8 @@ import type {
   RecurringBudget,
   CategoryBudgetSummary,
 } from "@/domain/entities/budget";
-import { type Competence, COST_CATEGORY_LABELS } from "@/domain/entities/cost";
+import type { Competence, CostCategory } from "@/domain/entities/cost";
+import { DEFAULT_CATALOG } from "@/domain/rules/categoryRules";
 import { formatCompetenceShort } from "@/domain/rules/competence";
 import { formatCurrencyBRL } from "@/lib/currency";
 
@@ -23,8 +24,11 @@ export const BUDGET_STATUS_TONE: Record<
 };
 
 /** Texto do alerta de orcamento (usado no Inicio e no snackbar pos-cadastro). */
-export function describeBudgetAlert(summary: CategoryBudgetSummary): string {
-  const label = COST_CATEGORY_LABELS[summary.category];
+export function describeBudgetAlert(
+  summary: CategoryBudgetSummary,
+  labelOf: (id: CostCategory) => string = DEFAULT_CATALOG.labelOf,
+): string {
+  const label = labelOf(summary.category);
   const limit = formatCurrencyBRL(summary.limit ?? 0);
   const spent = formatCurrencyBRL(summary.spent);
 

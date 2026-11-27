@@ -15,6 +15,12 @@ import { renderWithRouter } from "@/test/render";
 vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
 vi.mock("@/lib/notify", () => ({ notify: vi.fn() }));
 vi.mock("@/services/authService", () => ({ logout: vi.fn() }));
+vi.mock("@/services/categoryService", () => ({
+  subscribeToCategories: vi.fn((_userId: string, onData: (items: never[]) => void) => {
+    onData([]);
+    return () => undefined;
+  }),
+}));
 vi.mock("@/services/uiPreferenceService", () => ({
   getUiPreferences: vi.fn(),
   updateUiPreferences: vi.fn(),

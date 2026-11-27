@@ -37,8 +37,6 @@ import {
   type MonthBudgetState,
 } from "@/domain/entities/budget";
 import {
-  COST_CATEGORIES,
-  COST_CATEGORY_LABELS,
   type Competence,
   type CostCategory,
   type CostEntry,
@@ -53,6 +51,7 @@ import {
   shiftCompetence,
   toCompetenceParam,
 } from "@/domain/rules/competence";
+import { compareCategoryOrder } from "@/domain/rules/costRules";
 import { canMutateCosts } from "@/domain/rules/permissions";
 import {
   defaultBudgetMode,
@@ -75,6 +74,7 @@ import { formatCompetence } from "@/lib/dates";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
+import { useCategories } from "@/providers/CategoriesProvider";
 import {
   applyMonthBudgetChanges,
   loadMonthBudgetState,
@@ -82,15 +82,19 @@ import {
 
 type CategoryRecord<T> = Record<CostCategory, T>;
 
-function byCategory<T>(build: (category: CostCategory) => T): CategoryRecord<T> {
-  return Object.fromEntries(
-    COST_CATEGORIES.map((category) => [category, build(category)]),
-  ) as CategoryRecord<T>;
+function byCategory<T>(
+  ids: readonly CostCategory[],
+  build: (category: CostCategory) => T,
+): CategoryRecord<T> {
+  return Object.fromEntries(ids.map((category) => [category, build(category)]));
 }
 
-function valuesFrom(effective: readonly EffectiveBudget[]): CategoryRecord<string> {
+function valuesFrom(
+  effective: readonly EffectiveBudget[],
+  ids: readonly CostCategory[],
+): CategoryRecord<string> {
   const limits = new Map(effective.map((item) => [item.category, item.limit]));
-  return byCategory((category) =>
+  return byCategory(ids, (category) =>
     toMaskedCurrencyFromNumber(limits.get(category) ?? 0),
   );
 }
@@ -100,7 +104,7 @@ function draftToLimits(
   values: CategoryRecord<string>,
   { year, month }: Competence,
 ): BudgetLimit[] {
-  return COST_CATEGORIES.flatMap((category) => {
+  return Object.keys(values).flatMap((category) => {
     const limit = parseMaskedCurrencyToNumber(values[category]);
     return Number.isFinite(limit) && limit > 0
       ? [{ id: buildBudgetDocId(year, month, category), category, year, month, limit }]
@@ -113,6 +117,9 @@ type BudgetEditorProps = {
   competence: Competence;
   entries: readonly CostEntry[];
   state: MonthBudgetState;
+  /** Linhas da tabela: categorias ativas + arquivadas com gasto/orcamento no mes. */
+  categoryIds: readonly CostCategory[];
+  labelOf: (id: CostCategory) => string;
   canEdit: boolean;
   onSaved: () => Promise<unknown>;
 };
@@ -122,12 +129,30 @@ function BudgetEditor({
   competence,
   entries,
   state,
+  categoryIds,
+  labelOf,
   canEdit,
   onSaved,
 }: BudgetEditorProps) {
-  const [values, setValues] = useState(() => valuesFrom(state.effective));
-  const [modes, setModes] = useState<CategoryRecord<BudgetMode>>(() =>
-    byCategory((category) => defaultBudgetMode(category, state)),
+  // Rascunho guarda apenas o que o usuario alterou; as demais linhas usam o
+  // valor salvo. Assim categorias novas (outra aba/catalogo carregado depois)
+  // entram na tabela sem descartar o que ja foi digitado.
+  const [draftValues, setValues] = useState<Partial<CategoryRecord<string>>>({});
+  const [draftModes, setModes] = useState<Partial<CategoryRecord<BudgetMode>>>({});
+  const values = useMemo(() => {
+    const saved = valuesFrom(state.effective, categoryIds);
+    return byCategory(
+      categoryIds,
+      (category) => draftValues[category] ?? saved[category],
+    );
+  }, [categoryIds, draftValues, state.effective]);
+  const modes = useMemo(
+    () =>
+      byCategory(
+        categoryIds,
+        (category) => draftModes[category] ?? defaultBudgetMode(category, state),
+      ),
+    [categoryIds, draftModes, state],
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -135,21 +160,23 @@ function BudgetEditor({
 
   const recurringContext = useMemo(
     () =>
-      byCategory((category) => ({
+      byCategory(categoryIds, (category) => ({
         active: resolveRecurringFor(state.recurring, category, competence),
         future: futureRecurringFor(state.recurring, category, competence),
       })),
-    [competence, state.recurring],
+    [categoryIds, competence, state.recurring],
   );
 
   const summaries = useMemo(() => {
     const summaryMap = new Map(
-      summarizeBudgets(entries, draftToLimits(values, competence)).map(
-        (item) => [item.category, item],
-      ),
+      summarizeBudgets(
+        entries,
+        draftToLimits(values, competence),
+        categoryIds,
+      ).map((item) => [item.category, item]),
     );
-    return COST_CATEGORIES.map((category) => summaryMap.get(category)!);
-  }, [competence, entries, values]);
+    return categoryIds.map((category) => summaryMap.get(category)!);
+  }, [categoryIds, competence, entries, values]);
 
   const totalBudget = summaries.reduce((sum, item) => sum + (item.limit ?? 0), 0);
   const spentInBudgeted = summaries.reduce(
@@ -174,13 +201,13 @@ function BudgetEditor({
 
       // Categorias em "Este mes em diante" ja sao governadas pela recorrencia:
       // a copia nao as altera (evita encerrar/mudar a recorrencia sem querer).
-      const copied = valuesFrom(previousState.effective);
-      const keptRecurring = COST_CATEGORIES.filter(
+      const copied = valuesFrom(previousState.effective, categoryIds);
+      const keptRecurring = categoryIds.filter(
         (category) => modes[category] === "recorrente",
       );
-      setValues((current) =>
-        byCategory((category) =>
-          modes[category] === "recorrente" ? current[category] : copied[category],
+      setValues(
+        byCategory(categoryIds, (category) =>
+          modes[category] === "recorrente" ? values[category] : copied[category],
         ),
       );
       notify(
@@ -188,7 +215,7 @@ function BudgetEditor({
         `Valores copiados de ${formatCompetenceLong(previous)}. Revise e salve.${
           keptRecurring.length
             ? ` Categorias recorrentes mantidas: ${keptRecurring
-                .map((category) => COST_CATEGORY_LABELS[category])
+                .map((category) => labelOf(category))
                 .join(", ")}.`
             : ""
         }`,
@@ -210,7 +237,7 @@ function BudgetEditor({
     event.preventDefault();
     const desired: Partial<CategoryRecord<DesiredBudget>> = {};
 
-    for (const category of COST_CATEGORIES) {
+    for (const category of categoryIds) {
       const validation = validateBudgetInput(
         parseMaskedCurrencyToNumber(values[category]),
       );
@@ -218,7 +245,7 @@ function BudgetEditor({
       if (!validation.ok) {
         notify(
           "warning",
-          `${COST_CATEGORY_LABELS[category]}: ${validation.message}`,
+          `${labelOf(category)}: ${validation.message}`,
         );
         return;
       }
@@ -232,7 +259,7 @@ function BudgetEditor({
       notify(
         "warning",
         `${plan.ignored
-          .map((category) => COST_CATEGORY_LABELS[category])
+          .map((category) => labelOf(category))
           .join(", ")}: o orçamento recorrente não pode ser removido só neste mês. Use "Este mês em diante" para encerrá-lo.`,
       );
     }
@@ -314,7 +341,7 @@ function BudgetEditor({
             <TableBody>
               {summaries.map((summary) => {
                 const category = summary.category;
-                const label = COST_CATEGORY_LABELS[category];
+                const label = labelOf(category);
                 const inputId = `budget-${category}`;
                 const draftValue = parseMaskedCurrencyToNumber(values[category]);
                 const origin = describeDraftOrigin({
@@ -428,6 +455,26 @@ export default function BudgetsPage() {
   const budgets = useMonthBudgets(userId, competence);
   const isLoading = costs.isLoading || budgets.isLoading;
   const loadError = costs.error ?? budgets.error;
+  const { catalog } = useCategories();
+  // Linhas: categorias ativas + arquivadas que tenham gasto ou orcamento no mes.
+  const categoryIds = useMemo(() => {
+    const inUse = new Set<CostCategory>([
+      ...costs.entries.map((entry) => entry.category),
+      ...budgets.state.effective.map((item) => item.category),
+    ]);
+    const known = new Set(catalog.ids);
+    // Ids em uso fora do catalogo (carregando/falha/removidos) tambem aparecem,
+    // para o total do mes bater com o Inicio.
+    const unknown = [...inUse]
+      .filter((id) => !known.has(id))
+      .sort(compareCategoryOrder);
+    return [
+      ...catalog.ids.filter(
+        (id) => catalog.activeIds.includes(id) || inUse.has(id),
+      ),
+      ...unknown,
+    ];
+  }, [budgets.state.effective, catalog, costs.entries]);
 
   useEffect(() => {
     if (loadError) {
@@ -468,6 +515,8 @@ export default function BudgetsPage() {
           competence={competence}
           entries={costs.entries}
           state={budgets.state}
+          categoryIds={categoryIds}
+          labelOf={catalog.labelOf}
           canEdit={canEdit}
           onSaved={budgets.reload}
         />

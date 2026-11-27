@@ -26,6 +26,7 @@ import { validateCostForm } from "@/domain/rules/costRules";
 import { fromInputDateAtNoon, toInputDate } from "@/lib/dates";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
 import { notify } from "@/lib/notify";
+import { useCategories } from "@/providers/CategoriesProvider";
 import { createCostEntry } from "@/services/costService";
 
 type CostQuickAddFormProps = {
@@ -52,6 +53,7 @@ export function CostQuickAddForm({
     toInputDate(defaultDateForCompetence(competence));
 
   const [form, setForm] = useState<CostFormState>(EMPTY_COST_FORM);
+  const { catalog } = useCategories();
   const [useManualDate, setUseManualDate] = useState(!isCurrentCompetence);
   const [manualDate, setManualDate] = useState(initialDate);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +61,12 @@ export function CostQuickAddForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // Categoria arquivada (em outra aba) depois de escolhida some das opcoes.
+    if (form.category && !catalog.activeIds.includes(form.category)) {
+      notify("warning", "Selecione uma categoria.");
+      return;
+    }
 
     const validation = validateCostForm(toCostFormValues(form));
 
