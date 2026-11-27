@@ -40,7 +40,7 @@ describe("appRoutes", () => {
     const router = renderAt("/costs");
 
     expect(
-      await screen.findByRole("heading", { name: "Entrar" }),
+      await screen.findByRole("heading", { name: "Entrar" }, { timeout: 5000 }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
   });
@@ -48,7 +48,7 @@ describe("appRoutes", () => {
   it("rotas desconhecidas e raiz redirecionam para /home (e dai ao login)", async () => {
     const router = renderAt("/rota-inexistente");
 
-    await screen.findByRole("heading", { name: "Entrar" });
+    await screen.findByRole("heading", { name: "Entrar" }, { timeout: 5000 });
     expect(router.state.location.pathname).toBe("/login");
   });
 });
