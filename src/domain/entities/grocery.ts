@@ -79,12 +79,36 @@ export type ListForecast = {
   missingCount: number;
 };
 
+/** Item da comanda fora da lista: vai para um produto do catalogo ou cria um novo. */
+export type ReceiptExtra = {
+  rawName: string;
+  quantity: number;
+  unitPrice: number;
+  /** Associacao confiavel (escolhida ou com nota alta): o nome lido vira apelido. */
+  learnAlias: boolean;
+  target: { kind: "product"; productId: string } | { kind: "new"; name: string; unit: GroceryUnit };
+};
+
+/** Dados da comanda lida por foto (entrega B). */
+export type ReceiptCompletion = {
+  /** Chave da NFC-e ou hash (emissor + dia + total): evita importar duas vezes (null = sem chave). */
+  key: string | null;
+  /** Confianca media do OCR (0-100). */
+  confidence: number | null;
+  /** Nome lido na comanda por item da lista (registrado na compra). */
+  rawNames: Record<string, string>;
+  /** Nomes que viram apelido do produto do item (associacao confiavel). */
+  aliases: Record<string, string>;
+  extras: ReceiptExtra[];
+};
+
 export type CompletionInput = {
   store: string;
   purchasedAt: Date | null;
   total: number;
   /** Preco unitario pago por item da lista (id do item); ausente/NaN = nao informado. */
   unitPrices: Record<string, number>;
+  receipt?: ReceiptCompletion;
 };
 
 export const MAX_LIST_ITEMS = 150;

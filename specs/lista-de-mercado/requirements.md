@@ -40,6 +40,23 @@ preços atualizados) e que, ao concluir a compra, vire automaticamente um lança
   (quantidade + marcar, duplo toque, incluir produto novo) nunca se anulam, e a tela não espera o servidor
   (4G do mercado). A lista de compras concluídas mostra o **total pago**.
 
+## Requisitos funcionais (entrega B — foto da comanda)
+
+- RF-12: no diálogo de conclusão, **Fotografar comanda** (câmera no celular, arquivo no computador). A
+  imagem é lida **no próprio aparelho** (OCR Tesseract.js em português, sem envio a servidor) com
+  barra de progresso.
+- RF-13: a leitura preenche **loja, data e total pago** (prefere "VALOR A PAGAR" a "VALOR TOTAL") e o
+  **preço pago** de cada item da lista reconhecido.
+- RF-14: **revisão** dos itens lidos: cada linha da comanda vai para um item da lista, um produto do
+  catálogo, um **produto novo** (já com o preço) ou é ignorada. Sugestão automática por apelido
+  aprendido e semelhança de nomes (marca e medidas não atrapalham; "BISCOITO DE ARROZ" não vira "Arroz").
+- RF-15: o nome lido vira **apelido** do produto, para a próxima comanda já reconhecer sozinha —
+  só quando o usuário escolheu o destino ou a associação automática é segura.
+- RF-16: **comanda já lançada** (mesma chave da NFC-e — QR Code ou texto — ou mesma loja + dia + total)
+  bloqueia a conclusão com aviso; é possível descartar a leitura e concluir manualmente.
+- RF-17: foto ilegível, total divergente da soma dos itens (≥ 5%) ou confiança baixa pedem conferência;
+  nada é gravado sem a confirmação do usuário.
+
 ## Requisitos não funcionais
 
 - RNF-01: previsão, validações, atualização do produto após a compra e lista x orçamento em funções puras

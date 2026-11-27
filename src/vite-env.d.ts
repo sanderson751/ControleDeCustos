@@ -14,3 +14,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Versao dos arquivos do OCR em /ocr/<versao>/ (definida no vite.config.ts). */
+declare const __OCR_VERSION__: string;

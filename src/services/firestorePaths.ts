@@ -16,6 +16,7 @@ import { db } from "@/lib/firebase";
  * users/{uid}/groceryProducts/{productId}
  * users/{uid}/groceryLists/{listId}
  * users/{uid}/groceryPurchases/{purchaseId}
+ * users/{uid}/groceryReceiptKeys/{receiptKey}
  */
 export const USERS_COLLECTION = "users";
 export const SETTINGS_COLLECTION = "settings";
@@ -85,6 +86,7 @@ export const goalContributionDocRef = (uid: string, contributionId: string) =>
 export const GROCERY_PRODUCTS_COLLECTION = "groceryProducts";
 export const GROCERY_LISTS_COLLECTION = "groceryLists";
 export const GROCERY_PURCHASES_COLLECTION = "groceryPurchases";
+export const GROCERY_RECEIPT_KEYS_COLLECTION = "groceryReceiptKeys";
 
 export const groceryProductsCollectionRef = (uid: string) =>
   collection(db, USERS_COLLECTION, uid, GROCERY_PRODUCTS_COLLECTION);
@@ -100,3 +102,7 @@ export const groceryListDocRef = (uid: string, listId: string) =>
 
 export const groceryPurchasesCollectionRef = (uid: string) =>
   collection(db, USERS_COLLECTION, uid, GROCERY_PURCHASES_COLLECTION);
+
+/** Comanda ja lancada (id = chave da NFC-e ou hash): garante que nao entra duas vezes. */
+export const groceryReceiptKeyDocRef = (uid: string, receiptKey: string) =>
+  doc(db, USERS_COLLECTION, uid, GROCERY_RECEIPT_KEYS_COLLECTION, receiptKey);

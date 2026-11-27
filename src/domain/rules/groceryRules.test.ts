@@ -194,12 +194,15 @@ describe("conclusao", () => {
       description: "Lista: Compra de 27/11",
       purchasedAt: NOW,
     });
+    expect(plan.newProducts).toEqual([]);
+    expect(plan.receipt).toBeNull();
     expect(plan.purchase.items).toEqual([
       { productId: "arroz", rawName: "Arroz 5kg", quantity: 2, unitPrice: 25.9, lineTotal: 51.8 },
     ]);
     expect(plan.productUpdates).toEqual([
       {
         productId: "arroz",
+        aliases: [],
         lastUnitPrice: 25.9,
         previousUnitPrice: null,
         lastPurchasedAt: NOW,

@@ -13,12 +13,14 @@ import {
   MAX_INTERVAL_DAYS,
   MAX_LIST_ITEMS,
   MAX_LIST_NAME_LENGTH,
+  MAX_PRODUCT_ALIASES,
   MAX_PRODUCT_NAME_LENGTH,
   MAX_QUANTITY,
   MAX_STORE_LENGTH,
 } from "@/domain/entities/grocery";
 import { getBudgetStatus, getConsumedPercent } from "@/domain/rules/budgetRules";
 import { normalizeSearchText } from "@/domain/rules/costRules";
+import { aliasKey } from "@/domain/rules/receiptParser";
 
 const toCents = (value: number) => Math.round(value * 100);
 const fromCents = (cents: number) => cents / 100;
@@ -341,6 +343,32 @@ export function applyPurchaseToProduct(
   };
 }
 
+/** Inclui o nome lido na comanda nos apelidos do produto (mais recentes primeiro, ate 10). */
+export function mergeAliases(current: readonly string[], rawName: string | undefined): string[] {
+  const alias = rawName ? aliasKey(rawName) : "";
+  if (!alias) return [...current];
+  return [alias, ...current.filter((item) => item !== alias)].slice(0, MAX_PRODUCT_ALIASES);
+}
+
+function emptyProduct(name: string, unit: GroceryUnit): GroceryProduct {
+  return {
+    id: "",
+    name,
+    normalizedName: normalizeSearchText(name),
+    unit,
+    lastUnitPrice: null,
+    previousUnitPrice: null,
+    lastPurchasedAt: null,
+    lastStore: "",
+    purchaseCount: 0,
+    avgIntervalDays: null,
+    intervalCount: 0,
+    aliases: [],
+  };
+}
+
+type ProductHistory = ReturnType<typeof applyPurchaseToProduct>;
+
 export type CompletionPlan = {
   cost: {
     accountName: string;
@@ -353,8 +381,15 @@ export type CompletionPlan = {
     purchasedAt: Date;
     total: number;
     items: GroceryPurchaseItem[];
+    /** Item da compra (indice) => produto novo (indice em newProducts), ligado ao id criado no lote. */
+    newProductLinks: Record<number, number>;
   };
-  productUpdates: Array<{ productId: string } & ReturnType<typeof applyPurchaseToProduct>>;
+  productUpdates: Array<{ productId: string; aliases: string[] } & ProductHistory>;
+  /** Produtos novos vindos da comanda (ja com o preco pago). */
+  newProducts: Array<{ name: string; normalizedName: string; unit: GroceryUnit; aliases: string[] } & ProductHistory>;
+  receipt: { key: string | null; confidence: number | null } | null;
+  /** Itens da comanda que nao couberam no limite de itens da compra. */
+  droppedExtras: number;
 };
 
 /** Traduz a conclusao em lancamento, compra registrada e atualizacao dos produtos. */
@@ -367,6 +402,12 @@ export function buildCompletion(
   const items: GroceryPurchaseItem[] = [];
   const productUpdates: CompletionPlan["productUpdates"] = [];
 
+  const updated = new Set<string>();
+  const newProducts: CompletionPlan["newProducts"] = [];
+  const newProductLinks: Record<number, number> = {};
+  const receipt = input.receipt;
+  let droppedExtras = 0;
+
   for (const item of list.items) {
     const price = input.unitPrices[item.id];
     const product = byId.get(item.productId);
@@ -375,18 +416,76 @@ export function buildCompletion(
       continue;
     }
 
+    const rawName = receipt?.rawNames[item.id];
     items.push({
       productId: product ? product.id : null,
-      rawName: item.name,
+      rawName: (rawName ?? item.name).slice(0, 120),
       quantity: item.quantity,
       unitPrice: fromCents(toCents(price)),
       lineTotal: fromCents(Math.round(toCents(price) * item.quantity)),
     });
 
-    if (product) {
+    if (product && !updated.has(product.id)) {
+      updated.add(product.id);
       productUpdates.push({
         productId: product.id,
+        aliases: mergeAliases(product.aliases, receipt?.aliases[item.id]),
         ...applyPurchaseToProduct(product, price, input.purchasedAt, input.store),
+      });
+    }
+  }
+
+  // Itens da comanda fora da lista: historico de preco para as proximas listas
+  // (a compra aceita ate MAX_LIST_ITEMS itens).
+  for (const extra of receipt?.extras ?? []) {
+    if (!Number.isFinite(extra.unitPrice) || extra.unitPrice <= 0) continue;
+    if (items.length >= MAX_LIST_ITEMS) {
+      droppedExtras += 1;
+      continue;
+    }
+
+    const target = extra.target;
+    const existing =
+      target.kind === "product"
+        ? byId.get(target.productId)
+        : products.find((product) => product.normalizedName === normalizeSearchText(target.name));
+
+    items.push({
+      productId: existing ? existing.id : null,
+      rawName: extra.rawName.slice(0, 120),
+      quantity: extra.quantity,
+      unitPrice: fromCents(toCents(extra.unitPrice)),
+      lineTotal: fromCents(Math.round(toCents(extra.unitPrice) * extra.quantity)),
+    });
+
+    if (existing) {
+      if (!updated.has(existing.id)) {
+        updated.add(existing.id);
+        productUpdates.push({
+          productId: existing.id,
+          aliases: mergeAliases(existing.aliases, extra.learnAlias ? extra.rawName : undefined),
+          ...applyPurchaseToProduct(existing, extra.unitPrice, input.purchasedAt, input.store),
+        });
+      }
+      continue;
+    }
+
+    if (target.kind === "new") {
+      const name = cleanName(target.name).slice(0, MAX_PRODUCT_NAME_LENGTH);
+      const normalizedName = normalizeSearchText(name);
+      if (!name) continue;
+      const repeated = newProducts.findIndex((product) => product.normalizedName === normalizedName);
+      if (repeated !== -1) {
+        newProductLinks[items.length - 1] = repeated;
+        continue;
+      }
+      newProductLinks[items.length - 1] = newProducts.length;
+      newProducts.push({
+        name,
+        normalizedName,
+        unit: target.unit,
+        aliases: mergeAliases([], extra.rawName),
+        ...applyPurchaseToProduct(emptyProduct(name, target.unit), extra.unitPrice, input.purchasedAt, input.store),
       });
     }
   }
@@ -403,8 +502,12 @@ export function buildCompletion(
       purchasedAt: input.purchasedAt,
       total: fromCents(toCents(input.total)),
       items,
+      newProductLinks,
     },
     productUpdates,
+    newProducts,
+    receipt: receipt ? { key: receipt.key, confidence: receipt.confidence } : null,
+    droppedExtras,
   };
 }
 

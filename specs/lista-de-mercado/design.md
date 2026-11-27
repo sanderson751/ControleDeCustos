@@ -47,6 +47,44 @@ duplo toque, produto novo sendo criado) se anulem.
   `CompleteListDialog`.
 - Menu "Mercado" (`ShoppingCartIcon`). `guest` somente leitura.
 
+## Entrega B — foto da comanda
+
+```
+Foto ─► receiptReader (lib): canvas (escala, cinza, contraste) ─► BarcodeDetector (QR NFC-e, se houver)
+                             ─► Tesseract.js (import dinâmico; /ocr: worker, core LSTM, por best_int)
+     ─► receiptParser (puro): itens, total, data, loja, chave ─► receiptReview (puro): decisões
+     ─► CompleteListDialog: preenche campos + ReceiptReview ─► buildCompletion (receipt) ─► lote único
+```
+
+- `src/lib/receiptReader.ts`: `readReceipt(file, { onProgress, signal, timeoutMs })` → texto, confiança,
+  chave do QR. Decodifica a foto já reduzida (`createImageBitmap` com `resizeWidth`), mostra o
+  progresso também na carga do OCR, pode ser cancelada e desiste após 2 min; o worker é sempre encerrado.
+- `src/domain/rules/receiptParser.ts`: `parseReceiptText` — itens nos padrões de cupom NFC-e e
+  CF-e SAT (com ou sem "X", preço com 3 casas, tributo entre parênteses, `=`/`*`, código de
+  tributação, linha quebrada), desconto do item e item cancelado; correção de O/l/S/B em números e
+  "RS"/"R5" no lugar de R$; total por prioridade (a pagar > total − desconto > total > valor pago sem
+  troco); data de emissão; loja; CNPJ; chave de acesso com DV conferido.
+  `matchReceiptLine`: apelido > semelhança (nota alta só quando todas as palavras do catálogo
+  aparecem e a primeira bate). `receiptKeyOf`: chave da NFC-e ou `h-<CNPJ|loja>-<dia>-<centavos>`
+  (sem data não há chave).
+- `src/domain/rules/receiptReview.ts`: associação **global** por nota (lista e catálogo), linhas
+  repetidas juntas, preço por item da lista (unidade diferente — kg na comanda, un na lista — divide
+  pela quantidade da lista) e `ReceiptCompletion`. O apelido só é aprendido com nota ≥ 0,9 ou
+  escolha do usuário; sugestões incertas aparecem marcadas na revisão.
+- Diálogo: a leitura guarda os valores de antes e o que preencheu; descartar ou trocar o destino de
+  uma linha só desfaz campos que o usuário não editou. A chave é recalculada na conclusão com os
+  valores finais e a duplicidade, conferida de novo.
+- `buildCompletion` gera `newProducts` (ligados aos itens da compra por `newProductLinks`), apelidos e
+  limita a compra a 150 itens; `completeList` cria tudo no mesmo lote com o registro
+  `groceryReceiptKeys/{chave}`, que garante a unicidade nas regras.
+- Arquivos do OCR copiados de `node_modules` para `public/ocr/<versão>/` por `npm run ocr:assets`
+  (pré-`dev`/`build`/`test:e2e`; fora do git). Servidos pelo próprio Hosting com cache de 1 ano
+  (a versão no caminho, `__OCR_VERSION__` no `vite.config.ts`, troca quando os pacotes mudam).
+  O rewrite da SPA não cobre `/ocr/*` (regex no `firebase.json`): arquivo ausente responde 404 em vez
+  do `index.html` com cache longo. Os dados do idioma ficam no IndexedDB por versão (`cachePath`).
+- Sem data lida na comanda (e sem o usuário alterar a data), não há chave: a data padrão (hoje) não
+  identifica a compra. Com a duplicidade marcada, corrigir loja/data/total gera outra chave e libera.
+
 ## Decisões
 
 - Previsão calculada, nunca gravada: a próxima lista sempre reflete o último preço pago.

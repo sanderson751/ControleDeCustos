@@ -3,6 +3,8 @@ node_modules/
 
 # Build output
 dist/
+# Arquivos do OCR copiados de node_modules (npm run ocr:assets)
+public/ocr/
 
 # Legado Next.js (caches locais antigos)
 .next/

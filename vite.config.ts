@@ -1,11 +1,21 @@
 /// <reference types="vitest/config" />
+import { createRequire } from "node:module";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+const require = createRequire(import.meta.url);
+/** Versao dos arquivos do OCR (mesma regra de scripts/copy-ocr-assets.mjs): caminho /ocr/<versao>/. */
+const ocrVersion = ["tesseract.js", "tesseract.js-core", "@tesseract.js-data/por"]
+  .map((name) => (require(`${name}/package.json`) as { version: string }).version)
+  .join("-");
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    __OCR_VERSION__: JSON.stringify(ocrVersion),
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
@@ -13,6 +23,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+  },
+  // tesseract.js e importado sob demanda (foto da comanda): pre-otimizar evita
+  // que o servidor de dev recarregue a pagina na primeira leitura.
+  optimizeDeps: {
+    include: ["tesseract.js"],
   },
   build: {
     outDir: "dist",

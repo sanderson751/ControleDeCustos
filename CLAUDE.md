@@ -35,6 +35,7 @@ npm run test           # testes unitários (Vitest)
 npm run test:coverage  # cobertura (v8)
 npm run test:rules     # testes das regras do Firestore no emulador (requer Java)
 npm run test:e2e       # testes E2E (Playwright + emuladores Auth/Firestore; usa o Chrome instalado)
+npm run ocr:assets     # copia os arquivos do OCR (Tesseract) para public/ocr (automático em dev/build/e2e)
 npm run verify         # typecheck + lint + test  ← gate obrigatório antes de PR
 npm run deploy         # verify + build + firebase deploy --only hosting
 npm run firestore:deploy  # publica firestore.rules e firestore.indexes.json
@@ -96,7 +97,8 @@ users/{uid}/savingsGoals/{id}       # meta: name, targetAmount, deadlineYear/Mon
 users/{uid}/goalContributions/{id}  # movimentacao imutavel: goalId, amount (+deposito/-retirada), date, note
 users/{uid}/groceryProducts/{id}    # catalogo de mercado: name, unit, lastUnitPrice/previousUnitPrice, intervalos
 users/{uid}/groceryLists/{id}       # lista: items[], status aberta|concluida (concluida = somente leitura), paidTotal
-users/{uid}/groceryPurchases/{id}   # compra imutavel: itens com preco pago, total, costEntryId
+users/{uid}/groceryPurchases/{id}   # compra imutavel: itens com preco pago, total, costEntryId, receiptKey
+users/{uid}/groceryReceiptKeys/{key} # comanda ja lancada (id = chave NFC-e/hash): impede lancar duas vezes
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal, recurringId?,
                                    # competenceYear, competenceMonth, createdAt, updatedAt
 users/{uid}/budgetLimits/{AAAA-MM-categoria}     # orçamento de um único mês (exceção)
