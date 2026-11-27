@@ -71,6 +71,13 @@ export function createFirestoreMock() {
     runTransaction: vi.fn(),
     writeBatch: vi.fn(() => batch),
     serverTimestamp: vi.fn(() => "SERVER_TIMESTAMP"),
+    deleteField: vi.fn(() => "DELETE_FIELD"),
+    FieldPath: class FieldPath {
+      readonly segments: string[];
+      constructor(...segments: string[]) {
+        this.segments = segments;
+      }
+    },
     Timestamp: {
       fromDate: vi.fn((date: Date) => ({
         __timestamp: date.toISOString(),

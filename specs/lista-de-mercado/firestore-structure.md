@@ -24,7 +24,7 @@
 | `userId` | string | dono |
 | `name` | string | 1–60 |
 | `status` | string | `aberta` \| `concluida` |
-| `items` | list<map> | ≤ 150 (`id`, `productId`, `name`, `quantity`, `checked`) |
+| `items` | map<itemId, map> | ≤ 150 (`productId`, `name`, `quantity`, `checked`, `order`); antes era array — ver `specs/lista-compartilhada/firestore-structure.md` |
 | `purchaseId` | string \| null | compra gerada ao concluir (só em lista concluída) |
 | `paidTotal` | number \| null | total pago (só em lista concluída) |
 | `completedAt` | timestamp \| null | |

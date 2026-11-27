@@ -1,6 +1,8 @@
 import {
   deleteDoc,
+  deleteField,
   doc,
+  FieldPath,
   getDoc,
   onSnapshot,
   serverTimestamp,
@@ -18,6 +20,7 @@ import {
   type GroceryUnit,
 } from "@/domain/entities/grocery";
 import { normalizeSearchText } from "@/domain/rules/costRules";
+import { diffListItems, toStoredItems } from "@/domain/rules/groceryListItems";
 import type { CompletionPlan } from "@/domain/rules/groceryRules";
 import { db } from "@/lib/firebase";
 import { toDate, toGroceryList, toGroceryProduct } from "@/services/converters";
@@ -99,16 +102,6 @@ export function createProduct(
   return { id: ref.id, written };
 }
 
-function itemFields(items: readonly GroceryListItem[]) {
-  return items.map(({ id, productId, name, quantity, checked }) => ({
-    id,
-    productId,
-    name,
-    quantity,
-    checked,
-  }));
-}
-
 export function createList(
   userId: string,
   input: { name: string; items?: readonly GroceryListItem[] },
@@ -118,7 +111,7 @@ export function createList(
     userId,
     name: input.name.trim(),
     status: "aberta",
-    items: itemFields(input.items ?? []),
+    items: toStoredItems(input.items ?? []),
     purchaseId: null,
     paidTotal: null,
     completedAt: null,
@@ -129,16 +122,71 @@ export function createList(
   return { id: ref.id, written };
 }
 
-/** Grava os itens da lista inteira (ultima escrita vence). */
+/** Ultima ordem usada neste aparelho: inclusoes no mesmo milissegundo nao empatam. */
+let lastOrder = 0;
+
+async function updateItemFields(userId: string, listId: string, fields: unknown[]): Promise<void> {
+  const [firstField, firstValue, ...rest] = [...fields, new FieldPath("updatedAt"), serverTimestamp()];
+  await updateDoc(groceryListDocRef(userId, listId), firstField as FieldPath, firstValue, ...rest);
+}
+
+/**
+ * Grava so o que mudou entre `previous` e `next` (campo a campo em
+ * `items.{itemId}`): alteracoes de pessoas ou aparelhos diferentes em itens
+ * diferentes se somam, inclusive offline. `staleIds` (itens incompletos que
+ * sobraram de remocao concorrente) sao apagados junto.
+ */
 export async function updateListItems(
   userId: string,
   listId: string,
-  items: readonly GroceryListItem[],
+  next: readonly GroceryListItem[],
+  previous: readonly GroceryListItem[],
+  staleIds: readonly string[] = [],
 ): Promise<void> {
-  await updateDoc(groceryListDocRef(userId, listId), {
-    items: itemFields(items),
-    updatedAt: serverTimestamp(),
-  });
+  const firstOrder = Math.max(Date.now(), lastOrder + 1);
+  const writes = diffListItems(previous, next, firstOrder);
+  const added = writes.filter((write) => write.type === "add").length;
+  if (added > 0) lastOrder = firstOrder + added - 1;
+
+  const fields: unknown[] = [];
+  for (const write of writes) {
+    if (write.type === "add") fields.push(new FieldPath("items", write.itemId), write.value);
+    else if (write.type === "change") fields.push(new FieldPath("items", write.itemId, write.field), write.value);
+    else fields.push(new FieldPath("items", write.itemId), deleteField());
+  }
+  for (const itemId of staleIds) fields.push(new FieldPath("items", itemId), deleteField());
+
+  if (fields.length === 0) return;
+  await updateItemFields(userId, listId, fields);
+}
+
+/**
+ * Lista no formato antigo (array): converte para mapa ITEM A ITEM. Se o
+ * servidor ainda tem o array, o resultado e o mapa completo; se outro aparelho
+ * ja converteu e alterou a lista, as alteracoes dele em outros itens ficam.
+ */
+export async function convertListItems(
+  userId: string,
+  listId: string,
+  next: readonly GroceryListItem[],
+  previous: readonly GroceryListItem[],
+): Promise<void> {
+  // Lista esvaziada: nao ha item para gravar, entao o mapa vazio substitui o array.
+  if (next.length === 0) {
+    await updateDoc(groceryListDocRef(userId, listId), { items: {}, updatedAt: serverTimestamp() });
+    return;
+  }
+
+  const nextIds = new Set(next.map((item) => item.id));
+  const fields: unknown[] = [];
+  for (const [itemId, value] of Object.entries(toStoredItems(next))) {
+    fields.push(new FieldPath("items", itemId), value);
+  }
+  for (const item of previous) {
+    if (!nextIds.has(item.id)) fields.push(new FieldPath("items", item.id), deleteField());
+  }
+
+  await updateItemFields(userId, listId, fields);
 }
 
 /** Compra ja registrada com a mesma comanda (chave da NFC-e ou hash). */

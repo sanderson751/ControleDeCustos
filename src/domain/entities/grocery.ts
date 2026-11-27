@@ -53,6 +53,10 @@ export type GroceryList = {
   paidTotal: number | null;
   createdAt: Date;
   completedAt: Date | null;
+  /** Itens ainda no formato antigo (array): a proxima gravacao converte para mapa. */
+  legacyItems?: boolean;
+  /** Itens incompletos no mapa (sobra de remocao concorrente): apagados na proxima gravacao. */
+  staleItemIds?: string[];
 };
 
 export type GroceryPurchaseItem = {

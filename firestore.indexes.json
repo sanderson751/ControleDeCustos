@@ -73,5 +73,11 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "groceryLists",
+      "fieldPath": "items",
+      "indexes": []
+    }
+  ]
 }

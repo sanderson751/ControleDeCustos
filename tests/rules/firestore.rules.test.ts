@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  deleteField,
   writeBatch,
 } from "firebase/firestore";
 
@@ -1041,6 +1042,67 @@ describe("lista de mercado (groceryProducts, groceryLists, groceryPurchases)", (
     await assertFails(updateDoc(doc(db, "users/ana/groceryLists/l1"), { name: "Outra" }));
     await assertFails(updateDoc(doc(db, "users/ana/groceryPurchases/g1"), { total: 1 }));
     await assertSucceeds(deleteDoc(doc(db, "users/ana/groceryLists/l1")));
+  });
+
+  it("itens em mapa: edicoes de aparelhos diferentes em itens diferentes se somam", async () => {
+    const db = as("ana");
+    // Formato antigo (array) convertido para mapa na primeira gravacao.
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/lm"), list));
+    await assertSucceeds(
+      updateDoc(doc(db, "users/ana/groceryLists/lm"), {
+        items: {
+          i1: { productId: "p1", name: "Arroz 5kg", quantity: 2, checked: false, order: 0 },
+          i2: { productId: "p2", name: "Café", quantity: 1, checked: false, order: 1 },
+        },
+      }),
+    );
+
+    // Dois aparelhos, cada um partindo da mesma versao, alteram itens diferentes.
+    await assertSucceeds(updateDoc(doc(as("ana"), "users/ana/groceryLists/lm"), "items.i1.checked", true));
+    await assertSucceeds(updateDoc(doc(as("ana"), "users/ana/groceryLists/lm"), "items.i2.quantity", 3));
+    await assertSucceeds(
+      updateDoc(doc(db, "users/ana/groceryLists/lm"), "items.i3", {
+        productId: "p3", name: "Leite", quantity: 6, checked: false, order: 1800000000000,
+      }),
+    );
+
+    const items = (await getDoc(doc(db, "users/ana/groceryLists/lm"))).data()?.items;
+    expect(items.i1.checked).toBe(true);
+    expect(items.i2.quantity).toBe(3);
+    expect(Object.keys(items).sort()).toEqual(["i1", "i2", "i3"]);
+
+    // Remocao de um item.
+    await assertSucceeds(updateDoc(doc(db, "users/ana/groceryLists/lm"), "items.i3", deleteField()));
+    const afterRemoval = (await getDoc(doc(db, "users/ana/groceryLists/lm"))).data()?.items;
+    expect(Object.keys(afterRemoval).sort()).toEqual(["i1", "i2"]);
+
+    // Aba com a versao antiga (array) nao apaga a lista ja convertida.
+    await assertFails(updateDoc(doc(db, "users/ana/groceryLists/lm"), { items: list.items }));
+
+    // Limite de itens vale para o mapa; outro tipo e negado.
+    const tooMany = Object.fromEntries(
+      Array.from({ length: 151 }, (_, index) => [`i${index}`, { productId: "p1", name: "A", quantity: 1, checked: false, order: index }]),
+    );
+    await assertFails(updateDoc(doc(db, "users/ana/groceryLists/lm"), { items: tooMany }));
+    await assertFails(updateDoc(doc(db, "users/ana/groceryLists/lm"), { items: "texto" }));
+  });
+
+  it("conversao item a item: sobre o array vira mapa; sobre mapa ja convertido preserva o resto", async () => {
+    const db = as("ana");
+    const stored = { productId: "p1", name: "Arroz 5kg", quantity: 2, checked: true, order: 0 };
+
+    await assertSucceeds(setDoc(doc(db, "users/ana/groceryLists/lc"), list));
+    await assertSucceeds(updateDoc(doc(db, "users/ana/groceryLists/lc"), "items.i1", stored));
+    expect((await getDoc(doc(db, "users/ana/groceryLists/lc"))).data()?.items).toEqual({ i1: stored });
+
+    // Outro aparelho ja converteu e incluiu i3: a conversao atrasada nao apaga i3.
+    await assertSucceeds(
+      updateDoc(doc(db, "users/ana/groceryLists/lc"), "items.i3", { ...stored, productId: "p3", name: "Leite", order: 5 }),
+    );
+    await assertSucceeds(updateDoc(doc(db, "users/ana/groceryLists/lc"), "items.i1", { ...stored, checked: false }));
+    const items = (await getDoc(doc(db, "users/ana/groceryLists/lc"))).data()?.items;
+    expect(Object.keys(items).sort()).toEqual(["i1", "i3"]);
+    expect(items.i1.checked).toBe(false);
   });
 
   it("concluir sem registrar a compra no mesmo lote e negado", async () => {

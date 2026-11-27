@@ -248,7 +248,8 @@ service cloud.firestore {
         && data.name.size() > 0
         && data.name.size() <= 60
         && data.status in ['aberta', 'concluida']
-        && data.items is list
+        // Mapa items.{itemId} (atual: edicoes simultaneas por item) ou array (formato antigo).
+        && (data.items is map || data.items is list)
         && data.items.size() <= 150
         && (data.get('purchaseId', null) == null
           || (data.purchaseId is string && data.purchaseId.size() <= 40))
@@ -370,6 +371,8 @@ service cloud.firestore {
           && resource.data.status == 'aberta'
           && !changedKeys().hasAny(['userId', 'createdAt'])
           && isValidGroceryList(request.resource.data)
+          // Lista ja em mapa nao volta a array (aba com versao antiga apagaria os itens).
+          && (!(resource.data.items is map) || request.resource.data.items is map)
           // Concluir exige a compra registrada no mesmo lote.
           && (request.resource.data.status == 'aberta'
             || isNewPurchaseOf(userId, listId, request.resource.data.purchaseId));

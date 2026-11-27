@@ -111,7 +111,7 @@ export default function GroceryListPage() {
   }, []);
 
   const list = lists.find((item) => item.id === listId) ?? null;
-  const { items, update } = useOptimisticListItems(userId, list?.id ?? null, list?.items);
+  const { items, update } = useOptimisticListItems(userId, list);
   const forecast = useMemo(() => forecastList(items, products), [items, products]);
   const editable = canEdit && list?.status === "aberta";
   const suggestions = useMemo(
