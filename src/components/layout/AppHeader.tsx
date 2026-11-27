@@ -1,6 +1,16 @@
 import { LogOutIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "react-router";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +32,7 @@ import type { ThemeMode, UserProfile } from "@/domain/entities/user";
 import { getRoleLabel } from "@/domain/rules/permissions";
 import { notify } from "@/lib/notify";
 import { findActiveNavigationItem } from "@/routes/navigation";
-import { logout } from "@/services/authService";
+import { hasUnsyncedChanges, logout } from "@/services/authService";
 
 type AppHeaderProps = {
   profile: UserProfile;
@@ -44,13 +54,21 @@ function getInitials(name: string) {
 export function AppHeader({ profile, theme, onToggleTheme }: AppHeaderProps) {
   const { pathname } = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [confirmUnsynced, setConfirmUnsynced] = useState(false);
   const activeItem = findActiveNavigationItem(pathname);
   const userName = profile.displayName.trim() || profile.email || "Usuário";
   const themeLabel =
     theme === "dark" ? "Ativar tema light" : "Ativar tema dark";
 
-  async function handleLogout() {
+  async function handleLogout(force = false) {
     setIsLoggingOut(true);
+
+    // Alteracoes feitas sem sinal ainda na fila: sair apaga o cache local.
+    if (!force && (await hasUnsyncedChanges())) {
+      setIsLoggingOut(false);
+      setConfirmUnsynced(true);
+      return;
+    }
 
     try {
       await logout();
@@ -125,6 +143,27 @@ export function AppHeader({ profile, theme, onToggleTheme }: AppHeaderProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <AlertDialog open={confirmUnsynced} onOpenChange={setConfirmUnsynced}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair sem sincronizar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Há alterações feitas sem conexão que ainda não chegaram ao servidor. Se sair agora, elas serão
+              perdidas. Conecte-se e aguarde alguns segundos para sincronizar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar conectado</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void handleLogout(true)}
+            >
+              Sair mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 }

@@ -20,4 +20,10 @@
 
 ## Entrega C — inteligência
 
-- [ ] Variação de preços e "inflação do mercado", sugestão de reposição, modo mercado (Wake Lock e offline).
+- [x] `groceryInsights`: variação de preço, inflação do mercado, sugestão de reposição, progresso do carrinho.
+- [x] Variação na lista e "Seus preços" (inflação do mês, altas/quedas, histórico por produto) em Mercado.
+- [x] "Talvez esteja acabando" na lista aberta, com adicionar.
+- [x] Modo mercado (`/grocery/:listId/shop`): marcação grande, soma do carrinho, Wake Lock, aviso sem conexão.
+- [x] Cache persistente do Firestore (offline) e limpeza do cache ao sair.
+- [x] Testes unitários e E2E (variação, reposição, marcação offline sincronizada).
+- [x] Revisão de QA (logout com várias abas e sem sinal, alterações não sincronizadas, tela do modo mercado pré-carregada, concluir sem sinal, wake lock duplicado, guest, exportação offline) com regressões.

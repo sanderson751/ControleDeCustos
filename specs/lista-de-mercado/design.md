@@ -85,6 +85,29 @@ Foto ─► receiptReader (lib): canvas (escala, cinza, contraste) ─► Barcod
 - Sem data lida na comanda (e sem o usuário alterar a data), não há chave: a data padrão (hoje) não
   identifica a compra. Com a duplicidade marcada, corrigir loja/data/total gera outra chave e libera.
 
+## Entrega C — inteligência
+
+- `src/domain/rules/groceryInsights.ts` (puro, testado): `priceTrend`/`formatTrend`,
+  `marketInflation` (cesta de 1 unidade por produto recomprado no mês — o volume de itens caros não
+  esconde a variação dos baratos), `restockSuggestions` (≥ 2 compras, intervalo médio conhecido,
+  dias desde a última ≥ 0,8 × média) e `shopProgress` (previsto do carrinho em centavos).
+- Componentes: `PriceTrendBadge` (tokens `danger`/`success` com texto e ícone), `PriceHistorySection`
+  (em `/grocery`), `RestockCard` (na lista aberta).
+- `GroceryShopPage` (`/grocery/:listId/shop`): reaproveita `useGroceryData`, `useOptimisticListItems`
+  (marcação otimista e sequencial) e `CompleteListDialog`. Hooks `useWakeLock` (pede de novo ao voltar
+  para a aba; negado/sem suporte só não mostra o aviso) e `useOnlineStatus`.
+- Offline: `initializeFirestore` com `persistentLocalCache` + `persistentMultipleTabManager` em
+  `src/lib/firebase.ts` (vale para o app inteiro: dados já vistos abrem sem sinal e gravações ficam na
+  fila mesmo com a página fechada). `logout` chama `clearLocalCache` (`terminate` +
+  `clearIndexedDbPersistence`) antes do `signOut`, para não deixar dados num aparelho compartilhado; o
+  `AuthProvider` recarrega no login quando a sessão termina (nesta e nas outras abas, encerradas pela
+  exclusão do cache). O registro de saída espera no máximo 3 s (sem sinal não confirma) e, com gravações
+  pendentes (`waitForPendingWrites`), a saída pede confirmação.
+- Sem sinal: a lista pré-carrega a tela do modo mercado; concluir não espera o commit (fica na fila e
+  avisa); exportar relatório é bloqueado (a consulta viria incompleta do cache).
+- Sem mudança no modelo de dados nem em `firestore.rules` (o histórico já tinha `previousUnitPrice`,
+  `purchaseCount`, `avgIntervalDays` e `intervalCount`).
+
 ## Decisões
 
 - Previsão calculada, nunca gravada: a próxima lista sempre reflete o último preço pago.

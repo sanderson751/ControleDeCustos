@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { User } from "firebase/auth";
 import type { UserProfile } from "@/domain/entities/user";
+import { reloadToLogin } from "@/lib/appReload";
 import { AuthProvider, useAuth, useSession } from "@/providers/AuthProvider";
 import { subscribeToAuthState } from "@/services/authService";
 import {
@@ -57,6 +58,23 @@ describe("AuthProvider", () => {
     expect(screen.getByTestId("status")).toHaveTextContent("loading");
     auth.emit(null);
     expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+    // Sem sessao anterior nao ha recarga.
+    expect(reloadToLogin).not.toHaveBeenCalled();
+  });
+
+  it("fim da sessao (nesta ou em outra aba) recarrega o app no login", async () => {
+    const auth = captureAuthCallback();
+    mockedEnsure.mockResolvedValue(undefined);
+    mockedSubscribeProfile.mockReturnValue(() => undefined);
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    auth.emit(fakeUser);
+    auth.emit(null);
+    expect(reloadToLogin).toHaveBeenCalledTimes(1);
   });
 
   it("sincroniza o perfil e reage a mudancas de papel em tempo real", async () => {

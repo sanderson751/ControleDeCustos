@@ -123,6 +123,21 @@ describe("ReportsPage", () => {
     expect(mockedList).toHaveBeenCalledTimes(1);
   });
 
+  it("sem conexao nao exporta relatorio possivelmente incompleto (cache do aparelho)", async () => {
+    mockedList.mockResolvedValue([makeCostEntry({ accountName: "Internet" })]);
+    const { user } = setup();
+    await screen.findByText("Internet");
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      await user.click(screen.getByRole("button", { name: "Exportar" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Exportar CSV" }));
+      expect(exportCsv).not.toHaveBeenCalled();
+      expect(mockedNotify).toHaveBeenCalledWith("warning", "Sem conexão: conecte-se para exportar o relatório completo.");
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+
   it("exporta CSV e PDF pelo menu de exportacao", async () => {
     const entries = [makeCostEntry({ accountName: "Internet" })];
     mockedList.mockResolvedValue(entries);

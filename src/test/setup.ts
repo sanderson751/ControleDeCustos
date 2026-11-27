@@ -12,7 +12,9 @@ vi.mock("@/lib/firebase", () => ({
   auth: { currentUser: null },
   db: { __mock: "firestore" },
   googleProvider: { providerId: "google.com" },
+  clearLocalCache: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/appReload", () => ({ reloadToLogin: vi.fn() }));
 
 // Limpeza explicita do historico de chamadas: `clearMocks` do config nao cobre os
 // mocks criados nas fabricas de vi.mock neste ambiente.

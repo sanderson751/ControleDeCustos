@@ -44,7 +44,9 @@ type FirestoreValue =
   | { doubleValue: number }
   | { booleanValue: boolean }
   | { nullValue: null }
-  | { timestampValue: string };
+  | { timestampValue: string }
+  | { arrayValue: { values?: FirestoreValue[] } }
+  | { mapValue: { fields?: Record<string, FirestoreValue> } };
 
 function toValue(value: unknown): FirestoreValue {
   if (value === null) return { nullValue: null };
@@ -53,7 +55,32 @@ function toValue(value: unknown): FirestoreValue {
   if (typeof value === "number") {
     return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
   }
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(toValue) } };
+  if (typeof value === "object") {
+    return {
+      mapValue: {
+        fields: Object.fromEntries(Object.entries(value as object).map(([key, item]) => [key, toValue(item)])),
+      },
+    };
+  }
   return { stringValue: String(value) };
+}
+
+/** Valor do REST do Firestore => JS (inteiros como number; listas e mapas recursivos). */
+function fromValue(value: Record<string, unknown>): unknown {
+  const [type, raw] = Object.entries(value)[0];
+  if (type === "integerValue") return Number(raw);
+  if (type === "arrayValue") {
+    return ((raw as { values?: Array<Record<string, unknown>> }).values ?? []).map(fromValue);
+  }
+  if (type === "mapValue") {
+    return Object.fromEntries(
+      Object.entries((raw as { fields?: Record<string, Record<string, unknown>> }).fields ?? {}).map(
+        ([key, item]) => [key, fromValue(item)],
+      ),
+    );
+  }
+  return raw;
 }
 
 /** Grava (cria ou substitui) um documento como administrador. */
@@ -78,12 +105,7 @@ export async function listDocuments(path: string): Promise<Array<Record<string, 
 
   return (body.documents ?? []).map((document) => ({
     id: document.name.split("/").pop(),
-    ...Object.fromEntries(
-      Object.entries(document.fields ?? {}).map(([key, value]) => {
-        const [type, raw] = Object.entries(value)[0];
-        return [key, type === "integerValue" ? Number(raw) : raw];
-      }),
-    ),
+    ...Object.fromEntries(Object.entries(document.fields ?? {}).map(([key, value]) => [key, fromValue(value)])),
   }));
 }
 

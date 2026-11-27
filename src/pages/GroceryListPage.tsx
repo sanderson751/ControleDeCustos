@@ -1,9 +1,11 @@
-import { ArrowLeftIcon, CheckCheckIcon, CopyIcon, Trash2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowLeftIcon, CheckCheckIcon, CopyIcon, ShoppingCartIcon, Trash2Icon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { AddItemForm } from "@/components/grocery/AddItemForm";
 import { CompleteListDialog } from "@/components/grocery/CompleteListDialog";
 import { ListBudgetCard } from "@/components/grocery/ListBudgetCard";
+import { PriceTrendBadge } from "@/components/grocery/PriceTrendBadge";
+import { RestockCard } from "@/components/grocery/RestockCard";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,7 @@ import {
   reuseListItems,
   validateQuantity,
 } from "@/domain/rules/groceryRules";
+import { restockSuggestions } from "@/domain/rules/groceryInsights";
 import { canMutateCosts } from "@/domain/rules/permissions";
 import { useGroceryData } from "@/hooks/useGroceryData";
 import { useOptimisticListItems } from "@/hooks/useOptimisticListItems";
@@ -102,10 +105,19 @@ export default function GroceryListPage() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isReusing, setIsReusing] = useState(false);
 
+  // Modo mercado costuma abrir ja sem sinal: baixa a tela enquanto ha conexao.
+  useEffect(() => {
+    void import("@/pages/GroceryShopPage").catch(() => undefined);
+  }, []);
+
   const list = lists.find((item) => item.id === listId) ?? null;
   const { items, update } = useOptimisticListItems(userId, list?.id ?? null, list?.items);
   const forecast = useMemo(() => forecastList(items, products), [items, products]);
   const editable = canEdit && list?.status === "aberta";
+  const suggestions = useMemo(
+    () => (editable ? restockSuggestions(products, items) : []),
+    [editable, items, products],
+  );
 
   const setItem = (itemId: string, patch: Partial<GroceryListItem>) =>
     update((current) => current.map((item) => (item.id === itemId ? { ...item, ...patch } : item)));
@@ -240,12 +252,22 @@ export default function GroceryListPage() {
               </LoadingButton>
             )
           ) : (
-            editable && (
-              <Button onClick={() => setIsCompleting(true)} disabled={items.length === 0}>
-                <CheckCheckIcon aria-hidden="true" />
-                Concluir compra
-              </Button>
-            )
+            <div className="flex flex-wrap gap-2">
+              {items.length > 0 && (
+                <Button asChild variant="outline">
+                  <Link to={ROUTES.groceryShop(list.id)}>
+                    <ShoppingCartIcon aria-hidden="true" />
+                    Modo mercado
+                  </Link>
+                </Button>
+              )}
+              {editable && (
+                <Button onClick={() => setIsCompleting(true)} disabled={items.length === 0}>
+                  <CheckCheckIcon aria-hidden="true" />
+                  Concluir compra
+                </Button>
+              )}
+            </div>
           )
         }
       />
@@ -259,6 +281,17 @@ export default function GroceryListPage() {
             <AddItemForm products={products} onAdd={handleAdd} />
           </CardContent>
         </Card>
+      )}
+
+      {editable && (
+        <RestockCard
+          suggestions={suggestions}
+          onAdd={(product) =>
+            void handleAdd({ product, newProduct: null, quantity: 1 }).then(
+              (added) => added && notify("success", `${product.name} adicionado à lista.`),
+            )
+          }
+        />
       )}
 
       <Card>
@@ -320,7 +353,10 @@ export default function GroceryListPage() {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {item.unitPrice !== null ? (
-                          formatCurrencyBRL(item.unitPrice)
+                          <span className="inline-flex items-center justify-end gap-2">
+                            <PriceTrendBadge product={item.product} />
+                            {formatCurrencyBRL(item.unitPrice)}
+                          </span>
                         ) : (
                           <Badge variant="outline">sem histórico</Badge>
                         )}

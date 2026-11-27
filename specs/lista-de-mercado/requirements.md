@@ -1,6 +1,6 @@
 # Requirements - Lista de mercado
 
-> Plano completo: 3 entregas. **A** (esta): lista, catálogo de produtos, previsão pelo histórico,
+> Plano completo: 3 entregas. **A**: lista, catálogo de produtos, previsão pelo histórico,
 > conclusão com total manual e lista x orçamento. **B**: foto da comanda (OCR no navegador).
 > **C**: variação de preços, sugestão de reposição e modo mercado.
 
@@ -56,6 +56,25 @@ preços atualizados) e que, ao concluir a compra, vire automaticamente um lança
   bloqueia a conclusão com aviso; é possível descartar a leitura e concluir manualmente.
 - RF-17: foto ilegível, total divergente da soma dos itens (≥ 5%) ou confiança baixa pedem conferência;
   nada é gravado sem a confirmação do usuário.
+
+## Requisitos funcionais (entrega C — inteligência)
+
+- RF-18: **variação de preço** por produto (último preço pago × anterior: "+12%", "−5%", "estável"),
+  com ícone e texto (nunca só cor), ao lado do preço previsto na lista.
+- RF-19: **"Seus preços"** em Mercado: **sua inflação do mercado** no mês (cesta com uma unidade de cada
+  produto recomprado no mês: soma dos preços atuais ÷ soma dos anteriores), maiores altas e quedas, e o
+  histórico resumido de cada produto (anterior, último, variação, data e loja da última compra).
+- RF-20: **"Talvez esteja acabando"**: na lista aberta, produtos comprados ao menos 2 vezes, fora da lista,
+  cuja última compra já atingiu 80% do intervalo médio entre compras ("comprado a cada ~7 dias · última há
+  9 dias"), com botão para adicionar (quantidade 1). Até 6, os mais atrasados primeiro.
+- RF-21: **modo mercado** (`/grocery/:listId/shop`): itens grandes para marcar no corredor, soma em tempo
+  real do previsto do que já está no carrinho (itens sem histórico ficam fora da soma, com aviso), progresso
+  e "Concluir compra". A tela fica ligada enquanto aberta (Screen Wake Lock, quando o navegador permite).
+- RF-22: **sem sinal**: marcar itens funciona offline e sincroniza quando a conexão volta (cache persistente
+  do Firestore no aparelho), com aviso "Sem conexão". A tela do modo mercado é baixada ao abrir a lista
+  (não há app offline completo: abrir o app do zero sem sinal não funciona). Concluir a compra sem sinal
+  salva no aparelho e avisa que sincroniza depois. Ao sair da conta, o cache local é apagado em todas as
+  abas (que recarregam no login); com alterações ainda não sincronizadas, a saída pede confirmação.
 
 ## Requisitos não funcionais
 

@@ -32,8 +32,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
-    // O SDK do Firebase (Auth + Firestore) sozinho ocupa ~580 kB minificado.
-    chunkSizeWarningLimit: 650,
+    // O SDK do Firebase (Auth + Firestore com cache persistente offline) ocupa ~665 kB minificado.
+    chunkSizeWarningLimit: 700,
     rolldownOptions: {
       output: {
         // Separa SDKs pesados em chunks de vendor com cache independente.

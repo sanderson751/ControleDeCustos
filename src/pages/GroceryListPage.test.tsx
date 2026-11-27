@@ -73,10 +73,10 @@ const LIST: GroceryList = {
   completedAt: null,
 };
 
-function setup(role: UserRole = "standard", list: GroceryList = LIST) {
+function setup(role: UserRole = "standard", list: GroceryList = LIST, products: GroceryProduct[] = [ARROZ, CAFE]) {
   vi.mocked(useSession).mockReturnValue({ profile: makeProfile(role), firebaseUser: {} as never });
   vi.mocked(subscribeToProducts).mockImplementation((_uid, onData) => {
-    onData([ARROZ, CAFE]);
+    onData(products);
     return () => undefined;
   });
   vi.mocked(subscribeToLists).mockImplementation((_uid, onData) => {
@@ -363,6 +363,81 @@ describe("GroceryListPage - regressoes da revisao", () => {
     setup();
 
     expect(await screen.findByText(/Não foi possível comparar a lista com o orçamento agora/)).toBeInTheDocument();
+  });
+});
+
+describe("GroceryListPage - inteligencia", () => {
+  beforeEach(() => {
+    vi.mocked(listMonthCosts).mockResolvedValue([]);
+    vi.mocked(listMonthBudgets).mockResolvedValue([]);
+    vi.mocked(listRecurringBudgets).mockResolvedValue([]);
+    vi.mocked(updateListItems).mockReturnValue(new Promise(() => undefined));
+  });
+
+  it("mostra a variacao do preco ao lado do previsto", () => {
+    setup("standard", LIST, [{ ...ARROZ, previousUnitPrice: 23 }, CAFE]);
+    expect(within(row("Arroz 5kg")).getByText("+12,6%")).toBeInTheDocument();
+    expect(within(row("Arroz 5kg")).getByText(/Preço subiu/)).toBeInTheDocument();
+  });
+
+  it("sugere repor produtos perto do fim e adiciona a lista", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const LEITE: GroceryProduct = {
+      ...ARROZ,
+      id: "leite",
+      name: "Leite",
+      normalizedName: "leite",
+      lastUnitPrice: 4.79,
+      purchaseCount: 4,
+      avgIntervalDays: 7,
+      intervalCount: 3,
+      lastPurchasedAt: new Date(Date.now() - 9 * day),
+    };
+    const { user } = setup("standard", LIST, [ARROZ, CAFE, LEITE]);
+
+    const card = screen.getByRole("region", { name: "Talvez esteja acabando" });
+    expect(card).toHaveTextContent("comprado a cada ~7 dias · última há 9 dias · último R$ 4,79");
+    await user.click(within(card).getByRole("button", { name: "Adicionar Leite à lista" }));
+
+    expect(updateListItems).toHaveBeenLastCalledWith(
+      expect.any(String),
+      "l1",
+      expect.arrayContaining([expect.objectContaining({ productId: "leite", quantity: 1 })]),
+    );
+    expect(mockedNotify).toHaveBeenCalledWith("success", "Leite adicionado à lista.");
+    // Ja na lista: some das sugestoes.
+    expect(screen.queryByRole("region", { name: "Talvez esteja acabando" })).not.toBeInTheDocument();
+  });
+
+  it("concluir sem sinal salva no aparelho, fecha o dialogo e avisa", async () => {
+    vi.mocked(completeList).mockReturnValueOnce(new Promise(() => undefined));
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      const { user } = setup();
+      await user.click(screen.getByRole("button", { name: "Concluir compra" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Concluir e lançar" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(mockedNotify).toHaveBeenCalledWith(
+        "warning",
+        "Sem conexão: a compra de R$ 51,80 foi salva no aparelho e o lançamento sincroniza quando a conexão voltar.",
+      );
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+
+  it("abre o modo mercado", () => {
+    setup();
+    expect(screen.getByRole("link", { name: "Modo mercado" })).toHaveAttribute("href", "/grocery/l1/shop");
+  });
+
+  it("guest nao recebe sugestoes de reposicao", () => {
+    setup("guest", LIST, [
+      { ...ARROZ, id: "leite", name: "Leite", purchaseCount: 3, avgIntervalDays: 1, lastPurchasedAt: new Date(2020, 0, 1) },
+    ]);
+    expect(screen.queryByRole("region", { name: "Talvez esteja acabando" })).not.toBeInTheDocument();
   });
 });
 
