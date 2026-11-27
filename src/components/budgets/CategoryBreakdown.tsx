@@ -56,7 +56,7 @@ export function CategoryBreakdown({
                     </span>
                   </div>
                   <Progress
-                    value={hasBudget ? (budget.percent ?? 0) : item.share * 100}
+                    value={Math.min(100, hasBudget ? (budget.percent ?? 0) : item.share * 100)}
                     aria-label={
                       hasBudget
                         ? `${label}: ${budget.percent}% do orçamento`

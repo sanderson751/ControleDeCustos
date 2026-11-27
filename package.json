@@ -21,7 +21,8 @@
     "deploy:hosting": "firebase deploy --only hosting",
     "firestore:deploy": "firebase deploy --only firestore:rules,firestore:indexes",
     "migrate:legacy-google-users": "node --env-file=.env scripts/migrate-legacy-google-users.mjs",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-controle-de-custos \"vitest run -c vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-controle-de-custos \"vitest run -c vitest.rules.config.ts\"",
+    "test:e2e": "firebase emulators:exec --only auth,firestore --project demo-controle-de-custos \"playwright test\""
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^6.0.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^8.0.0",

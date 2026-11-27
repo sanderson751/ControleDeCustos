@@ -93,6 +93,7 @@ alterando `role` para `"admin"` no documento `users/{uid}` pelo Console do Fireb
 | `npm run verify` | Typecheck + lint + testes unitários (gate de PR) |
 | `npm run test` / `npm run test:coverage` | Testes unitários / cobertura |
 | `npm run test:rules` | Testes das regras do Firestore no emulador |
+| `npm run test:e2e` | Testes de ponta a ponta (Playwright) contra os emuladores de Auth e Firestore |
 | `npm run lint` / `npm run lint:fix` | ESLint |
 | `npm run firestore:deploy` | Publica regras e índices do Firestore |
 | `npm run deploy` | Verify + build + deploy no Firebase Hosting |

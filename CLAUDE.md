@@ -20,7 +20,7 @@ nasce de uma spec em `specs/<feature>/` e segue o steering em `.sdd/steering/`.
 | Feedback     | Sonner (snackbar padrão via `notify()` em `src/lib/notify.ts`)             |
 | Backend      | **Sem servidor**: Firebase Auth + Cloud Firestore (SDK client)             |
 | Hospedagem   | **Firebase Hosting** (estático, plano Spark) — `firebase.json`             |
-| Testes       | Vitest 5 + React Testing Library + jsdom; regras via emulador Firestore    |
+| Testes       | Vitest 5 + RTL + jsdom; regras e E2E (Playwright) nos emuladores Firebase  |
 | Qualidade    | ESLint 10 (flat config) + typescript-eslint + react-hooks                  |
 
 ## Comandos
@@ -34,6 +34,7 @@ npm run lint           # ESLint (zero erros obrigatório) | lint:fix para autofi
 npm run test           # testes unitários (Vitest)
 npm run test:coverage  # cobertura (v8)
 npm run test:rules     # testes das regras do Firestore no emulador (requer Java)
+npm run test:e2e       # testes E2E (Playwright + emuladores Auth/Firestore; usa o Chrome instalado)
 npm run verify         # typecheck + lint + test  ← gate obrigatório antes de PR
 npm run deploy         # verify + build + firebase deploy --only hosting
 npm run firestore:deploy  # publica firestore.rules e firestore.indexes.json
@@ -64,6 +65,7 @@ src/
   lib/                     # utilitários (firebase, currency, dates, errors, notify, reportExport)
   test/                    # setup, factories, mocks e helpers de render
 tests/rules/               # testes de firestore.rules (emulador)
+tests/e2e/                 # testes E2E (Playwright) + support/ (semeadura nos emuladores)
 scripts/                   # scripts operacionais (ex.: migração de usuários Google legados)
 ```
 
@@ -141,7 +143,7 @@ Checklist completo: `specs/_template/dod-checklist.md`. Resumo:
 
 - **Nunca** commitar direto na `main`: ela é protegida no GitHub e só recebe merge via **Pull Request**.
 - Crie branch a partir da `main` atualizada: `feat/…`, `fix/…`, `refactor/…`, `docs/…`, `chore/…`.
-- Antes de abrir o PR: `npm run verify` verde (+ `npm run test:rules` se mexeu em regras/dados).
+- Antes de abrir o PR: `npm run verify` verde (+ `npm run test:rules` se mexeu em regras/dados; + `npm run test:e2e` se mexeu em fluxos de tela, serviços ou regras).
 - Commits em pt-BR, no imperativo e focados (ex.: `feat(custos): adiciona orçamento por categoria`).
 - **Sem atribuição de IA**: nunca incluir `Co-Authored-By` de IA, "Generated with ..." ou qualquer menção a ferramentas de IA em commits, PRs ou textos informativos.
 - Não há CI configurado: a validação é local e responsabilidade de quem abre o PR.
