@@ -37,4 +37,5 @@ Este projeto segue SDD para reduzir ambiguidades e garantir que o desenvolviment
 - `specs/evolucao-mensal/`: grafico de evolucao mensal de gasto x orcamento.
 - `specs/descricao-e-busca/`: descricao livre no lancamento e busca na listagem.
 - `specs/categorias-personalizadas/`: categorias proprias do usuario (criar, renomear, arquivar).
+- `specs/importar-extrato/`: importacao de extrato/fatura em CSV com pre-visualizacao.
 - `CLAUDE.md` e `.claude/`: mapeamento dos agentes e skills do SDD para o Claude Code.
