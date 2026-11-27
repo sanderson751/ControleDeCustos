@@ -859,3 +859,128 @@ describe("recorrencias: cursor e vinculo do lancamento gerado", () => {
     await assertSucceeds(setDoc(doc(as("ana"), "users/ana/costEntries/comum"), validCost));
   });
 });
+
+describe("metas de economia (savingsGoals e goalContributions)", () => {
+  const goal = {
+    userId: "ana",
+    name: "Viagem",
+    targetAmount: 6000,
+    deadlineYear: 2027,
+    deadlineMonth: 4,
+  };
+  const goalPath = "users/ana/savingsGoals/g1";
+  const contribution = {
+    userId: "ana",
+    goalId: "g1",
+    amount: 500,
+    date: new Date(2026, 10, 3),
+    note: "",
+  };
+
+  it("standard cria, edita e exclui meta; movimentacoes em meta existente", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), goalPath), goal));
+    await assertSucceeds(updateDoc(doc(as("ana"), goalPath), { targetAmount: 7000 }));
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), goalPath), { deadlineYear: null, deadlineMonth: null }),
+    );
+
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/goalContributions/c1"), contribution));
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/goalContributions/c2"), { ...contribution, amount: -100 }),
+    );
+    await assertSucceeds(getDocs(collection(as("ana"), "users/ana/goalContributions")));
+    await assertFails(updateDoc(doc(as("ana"), "users/ana/goalContributions/c1"), { amount: 900 }));
+    await assertSucceeds(deleteDoc(doc(as("ana"), "users/ana/goalContributions/c1")));
+    await assertSucceeds(deleteDoc(doc(as("ana"), goalPath)));
+  });
+
+  it("bloqueia metas invalidas", async () => {
+    for (const data of [
+      { ...goal, name: "" },
+      { ...goal, name: "x".repeat(61) },
+      { ...goal, targetAmount: 0 },
+      { ...goal, targetAmount: "6000" },
+      { ...goal, deadlineMonth: null },
+      { ...goal, deadlineMonth: 13 },
+      { ...goal, extra: true },
+      { ...goal, userId: "gui" },
+    ]) {
+      await assertFails(setDoc(doc(as("ana"), goalPath), data));
+    }
+  });
+
+  it("bloqueia movimentacoes invalidas ou em meta inexistente/de outro usuario", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), goalPath), goal));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/gui/savingsGoals/gg"), { ...goal, userId: "gui" });
+    });
+
+    for (const data of [
+      { ...contribution, amount: 0 },
+      { ...contribution, amount: 1000000001 },
+      { ...contribution, amount: "500" },
+      { ...contribution, goalId: "naoExiste" },
+      { ...contribution, goalId: "gg" },
+      { ...contribution, date: "2026-11-03" },
+      { ...contribution, note: "x".repeat(201) },
+      { ...contribution, extra: 1 },
+    ]) {
+      await assertFails(setDoc(doc(as("ana"), "users/ana/goalContributions/x"), data));
+    }
+  });
+
+  it("guest nao grava; outros usuarios nao leem", async () => {
+    await assertFails(
+      setDoc(doc(as("gui"), "users/gui/savingsGoals/g9"), { ...goal, userId: "gui" }),
+    );
+    await assertSucceeds(setDoc(doc(as("ana"), goalPath), goal));
+    await assertFails(getDoc(doc(as("admin"), goalPath)));
+    await assertFails(getDocs(collection(as("gui"), "users/ana/goalContributions")));
+  });
+});
+
+describe("metas: datas e carimbos de tempo", () => {
+  const goal = { userId: "ana", name: "Viagem", targetAmount: 6000, deadlineYear: null, deadlineMonth: null };
+  const contribution = { userId: "ana", goalId: "g1", amount: 500, date: new Date(2026, 10, 3), note: "" };
+
+  it("aceita serverTimestamp e recusa carimbos forjados", async () => {
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/savingsGoals/g1"), {
+        ...goal,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(as("ana"), "users/ana/savingsGoals/g1"), { targetAmount: 7000, updatedAt: serverTimestamp() }),
+    );
+    await assertFails(
+      updateDoc(doc(as("ana"), "users/ana/savingsGoals/g1"), { updatedAt: new Date(2020, 0, 1) }),
+    );
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/savingsGoals/g2"), { ...goal, name: "Outra", createdAt: new Date(2020, 0, 1) }),
+    );
+
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/goalContributions/c1"), { ...contribution, createdAt: serverTimestamp() }),
+    );
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/goalContributions/c2"), { ...contribution, createdAt: new Date(2020, 0, 1) }),
+    );
+  });
+
+  it("data da movimentacao entre 2000 e amanha", async () => {
+    await assertSucceeds(setDoc(doc(as("ana"), "users/ana/savingsGoals/g1"), goal));
+    const inTwoDays = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/goalContributions/f1"), { ...contribution, date: inTwoDays }),
+    );
+    await assertFails(
+      setDoc(doc(as("ana"), "users/ana/goalContributions/f2"), { ...contribution, date: new Date(1999, 11, 31) }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as("ana"), "users/ana/goalContributions/f3"), { ...contribution, date: new Date() }),
+    );
+  });
+});

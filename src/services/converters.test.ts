@@ -4,6 +4,8 @@ import {
   toRecurringBudget,
   toUserProfile,
   toRecurringCost,
+  toGoalContribution,
+  toSavingsGoal,
 } from "@/services/converters";
 
 describe("converters", () => {
@@ -95,5 +97,19 @@ describe("recorrencias", () => {
   it("toCostEntry le recurringId somente quando presente", () => {
     expect(toCostEntry("rec-r1-2026-11", { recurringId: "r1" }).recurringId).toBe("r1");
     expect(toCostEntry("c1", {})).not.toHaveProperty("recurringId");
+  });
+});
+
+describe("metas de economia", () => {
+  it("toSavingsGoal e toGoalContribution com padroes seguros", () => {
+    expect(toSavingsGoal("g1", { name: "Viagem", targetAmount: 6000, deadlineYear: 2027 })).toEqual({
+      id: "g1",
+      name: "Viagem",
+      targetAmount: 6000,
+      deadline: null,
+    });
+    expect(
+      toGoalContribution("c1", { goalId: "g1", amount: -10, date: { toDate: () => new Date(2026, 0, 1) } }),
+    ).toEqual({ id: "c1", goalId: "g1", amount: -10, date: new Date(2026, 0, 1), note: "" });
   });
 });

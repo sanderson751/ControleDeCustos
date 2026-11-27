@@ -6,11 +6,25 @@ import {
   listRecurringBudgets,
 } from "@/services/budgetService";
 import { listMonthCosts } from "@/services/costService";
+import {
+  subscribeToContributions,
+  subscribeToGoals,
+} from "@/services/savingsGoalService";
 import { makeBudget, makeCostEntry, makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
 vi.mock("@/providers/AuthProvider", () => ({ useSession: vi.fn() }));
 vi.mock("@/services/costService", () => ({ listMonthCosts: vi.fn() }));
+vi.mock("@/services/savingsGoalService", () => ({
+  subscribeToGoals: vi.fn((_uid: string, onData: (items: never[]) => void) => {
+    onData([]);
+    return () => undefined;
+  }),
+  subscribeToContributions: vi.fn((_uid: string, onData: (items: never[]) => void) => {
+    onData([]);
+    return () => undefined;
+  }),
+}));
 vi.mock("@/services/budgetService", async () =>
   (await import("@/test/budgetServiceMock")).createBudgetServiceMock(),
 );
@@ -183,5 +197,58 @@ describe("HomePage", () => {
       await screen.findByText("Não foi possível carregar os custos do mês."),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Ver custos/ })).toBeInTheDocument();
+  });
+});
+
+describe("HomePage - metas de economia", () => {
+  beforeEach(() => {
+    mockedBudgets.mockResolvedValue([]);
+    mockedList.mockResolvedValue([]);
+  });
+
+  it("mostra o guardado no mes visualizado e as metas mais urgentes (cenario 5)", async () => {
+    asUser();
+    const nextYear = new Date().getFullYear() + 1;
+    vi.mocked(subscribeToGoals).mockImplementation((_uid, onData) => {
+      onData([
+        { id: "g1", name: "Viagem", targetAmount: 6000, deadline: { year: nextYear, month: 6 } },
+        { id: "g2", name: "Reserva", targetAmount: 1000, deadline: null },
+      ]);
+      return () => undefined;
+    });
+    vi.mocked(subscribeToContributions).mockImplementation((_uid, onData) => {
+      onData([
+        { id: "c1", goalId: "g1", amount: 500, date: new Date(2026, 10, 3, 12), note: "" },
+        { id: "c2", goalId: "g1", amount: -100, date: new Date(2026, 10, 20, 12), note: "" },
+        { id: "c3", goalId: "g2", amount: 1000, date: new Date(2026, 9, 1, 12), note: "" },
+      ]);
+      return () => undefined;
+    });
+
+    renderWithRouter(<HomePage />, { route: "/home?mes=2026-11", path: "/home" });
+
+    expect(await screen.findByText("Metas de economia")).toBeInTheDocument();
+    expect(screen.getByText(/Guardado em novembro de 2026:/)).toBeInTheDocument();
+    expect(screen.getByText("R$ 400,00")).toBeInTheDocument();
+    expect(screen.getByText("Viagem")).toBeInTheDocument();
+    // Meta concluida nao aparece nos destaques.
+    expect(screen.queryByText("Reserva")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ver metas/ })).toHaveAttribute("href", "/goals");
+  });
+
+  it("sem metas o resumo fica oculto", async () => {
+    asUser();
+    vi.mocked(subscribeToGoals).mockImplementation((_uid, onData) => {
+      onData([]);
+      return () => undefined;
+    });
+    vi.mocked(subscribeToContributions).mockImplementation((_uid, onData) => {
+      onData([]);
+      return () => undefined;
+    });
+
+    renderWithRouter(<HomePage />);
+    await screen.findByText("Total de custos");
+    expect(screen.queryByText("Metas de economia")).not.toBeInTheDocument();
   });
 });

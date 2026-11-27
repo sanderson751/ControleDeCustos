@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { BudgetAlerts } from "@/components/budgets/BudgetAlerts";
 import { CategoryBreakdown } from "@/components/budgets/CategoryBreakdown";
 import { CostTotalsGrid } from "@/components/costs/CostTotalsGrid";
+import { GoalsSummary } from "@/components/goals/GoalsSummary";
 import { CompetencePicker } from "@/components/shared/CompetencePicker";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -99,6 +100,8 @@ export default function HomePage() {
         budgets={budgetSummaries}
         isLoading={isLoading}
       />
+
+      <GoalsSummary userId={profile.userId} competence={competence} />
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-6 text-sm text-muted-foreground">
         <p>Competência: {competenceLabel}</p>

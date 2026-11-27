@@ -167,6 +167,49 @@ service cloud.firestore {
             && data.lastGeneratedMonth <= 12));
     }
 
+    // Meta de economia: alvo e prazo opcional (ano e mes juntos).
+    function isValidGoal(data) {
+      return data.keys().hasOnly(['userId', 'name', 'targetAmount', 'deadlineYear',
+          'deadlineMonth', 'createdAt', 'updatedAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 60
+        && data.targetAmount is number
+        && data.targetAmount > 0
+        && data.targetAmount <= 1000000000
+        && ((data.get('deadlineYear', null) == null
+            && data.get('deadlineMonth', null) == null)
+          || (data.get('deadlineYear', null) is int
+            && data.deadlineYear >= 2000
+            && data.deadlineYear <= 2100
+            && data.get('deadlineMonth', null) is int
+            && data.deadlineMonth >= 1
+            && data.deadlineMonth <= 12));
+    }
+
+    // Movimentacao de meta: deposito (> 0) ou retirada (< 0) em meta existente do usuario.
+    function isValidContribution(userId, data) {
+      return data.keys().hasOnly(['userId', 'goalId', 'amount', 'date', 'note', 'createdAt'])
+        && data.goalId is string
+        && data.goalId.matches('^[A-Za-z0-9]{1,40}$')
+        && exists(/databases/$(database)/documents/users/$(userId)/savingsGoals/$(data.goalId))
+        && data.amount is number
+        && ((data.amount > 0 && data.amount <= 1000000000)
+          || (data.amount < 0 && data.amount >= -1000000000))
+        && data.date is timestamp
+        && data.date >= timestamp.date(2000, 1, 1)
+        && data.date <= request.time + duration.value(1, 'd')
+        && data.get('note', '') is string
+        && data.get('note', '').size() <= 200
+        && data.get('createdAt', request.time) == request.time;
+    }
+
+    // Carimbos enviados pelo app (serverTimestamp) devem ser o horario do servidor.
+    function hasServerTimestamps(data) {
+      return data.get('createdAt', request.time) == request.time
+        && data.get('updatedAt', request.time) == request.time;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
@@ -212,6 +255,39 @@ service cloud.firestore {
           && isValidCategoryDoc(request.resource.data);
 
         allow delete: if false;
+      }
+
+      match /savingsGoals/{goalId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidGoal(request.resource.data)
+          && hasServerTimestamps(request.resource.data);
+
+        allow update: if isOwner(userId)
+          && canWriteCosts()
+          && !changedKeys().hasAny(['userId', 'createdAt'])
+          && isValidGoal(request.resource.data)
+          && (!changedKeys().hasAny(['updatedAt'])
+            || request.resource.data.updatedAt == request.time);
+
+        allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
+      // Movimentacoes sao imutaveis: corrigir = excluir e registrar de novo.
+      match /goalContributions/{contributionId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidContribution(userId, request.resource.data);
+
+        allow update: if false;
+
+        allow delete: if isOwner(userId) && canWriteCosts();
       }
 
       match /recurringCosts/{recurringId} {
