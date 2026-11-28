@@ -5,6 +5,7 @@ import type { UserRole } from "@/domain/entities/user";
 import GroceryShopPage from "@/pages/GroceryShopPage";
 import { useSession } from "@/providers/AuthProvider";
 import { subscribeToLists, subscribeToProducts, updateListItems } from "@/services/groceryService";
+import { subscribeToList } from "@/services/groceryShareService";
 import { makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
@@ -17,6 +18,8 @@ vi.mock("@/services/groceryService", () => ({
   completeList: vi.fn(),
   findPurchaseByReceiptKey: vi.fn(),
 }));
+
+vi.mock("@/services/groceryShareService", () => ({ subscribeToList: vi.fn() }));
 
 const now = new Date();
 const ARROZ: GroceryProduct = {
@@ -148,5 +151,33 @@ describe("GroceryShopPage", () => {
     setup("standard", { ...LIST, status: "concluida", purchaseId: "g1", paidTotal: 50, completedAt: now });
     expect(screen.getByText(/já foi concluída/)).toBeInTheDocument();
     expect(within(screen.getByRole("list", { name: "Itens da lista" })).getAllByRole("checkbox")[0]).toBeDisabled();
+  });
+});
+
+describe("GroceryShopPage - lista compartilhada", () => {
+  it("participante marca no caminho do dono; so o dono conclui", async () => {
+    vi.mocked(updateListItems).mockReturnValue(new Promise(() => undefined));
+    vi.mocked(useSession).mockReturnValue({ profile: makeProfile("standard"), firebaseUser: {} as never });
+    vi.mocked(subscribeToProducts).mockImplementation((_uid, onData) => {
+      onData([ARROZ, CAFE]);
+      return () => undefined;
+    });
+    vi.mocked(subscribeToList).mockImplementation((_owner, _id, onData) => {
+      onData({ ...LIST, ownerId: "uid-ana", ownerName: "Ana", memberIds: ["uid-standard"] });
+      return () => undefined;
+    });
+    const { user } = renderWithRouter(
+      <Routes>
+        <Route path="/grocery/compartilhada/:ownerId/:listId/shop" element={<GroceryShopPage />} />
+      </Routes>,
+      { route: "/grocery/compartilhada/uid-ana/l1/shop" },
+    );
+
+    expect(screen.getByRole("link", { name: "Voltar para a lista" })).toHaveAttribute("href", "/grocery/compartilhada/uid-ana/l1");
+    expect(screen.queryByRole("button", { name: "Concluir compra" })).not.toBeInTheDocument();
+    expect(screen.getByText("Só Ana pode concluir esta compra.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: /Arroz 5kg/ }));
+    expect(updateListItems).toHaveBeenLastCalledWith("uid-ana", "l1", expect.any(Array), expect.any(Array), []);
   });
 });

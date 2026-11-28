@@ -211,6 +211,15 @@ describe("groceryService", () => {
   it("exclui lista", async () => {
     await deleteList("uid-1", "l1");
     expect(mocked.deleteDoc).toHaveBeenCalledWith(expect.objectContaining({ path: "users/uid-1/groceryLists/l1" }));
+
+    // Compartilhada: convites e acessos ao catalogo no mesmo lote.
+    await deleteList("uid-1", "l1", { inviteIds: ["l1_bia@x.com"], memberUids: ["bia"] });
+    expect(batch.delete.mock.calls.map(([ref]) => (ref as { path: string }).path)).toEqual([
+      "users/uid-1/groceryLists/l1",
+      "groceryInvites/l1_bia@x.com",
+      "users/uid-1/groceryMembers/bia",
+    ]);
+    expect(batch.commit).toHaveBeenCalled();
   });
 
   it("conclui em um unico lote: custo, compra, produtos e lista", async () => {

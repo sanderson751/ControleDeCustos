@@ -10,6 +10,8 @@ import {
   type GroceryListItem,
   type GroceryProduct,
   type GroceryUnit,
+  type GroceryInvite,
+  type GroceryListMember,
 } from "@/domain/entities/grocery";
 import type { UserProfile } from "@/domain/entities/user";
 import { normalizeCategory } from "@/domain/rules/costRules";
@@ -234,6 +236,34 @@ function toGroceryListItems(raw: unknown): { items: GroceryListItem[]; staleItem
   };
 }
 
+function toGroceryListMembers(raw: unknown): Record<string, GroceryListMember> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>)
+      .filter(([, value]) => value && typeof value === "object")
+      .map(([uid, value]) => {
+        const member = value as Record<string, unknown>;
+        return [uid, { name: String(member.name ?? ""), email: String(member.email ?? "") }];
+      }),
+  );
+}
+
+export function toGroceryInvite(id: string, data: DocumentData): GroceryInvite {
+  const status = data.status === "aceito" || data.status === "recusado" ? data.status : "pendente";
+  return {
+    id,
+    ownerId: String(data.ownerId ?? ""),
+    ownerName: String(data.ownerName ?? ""),
+    ownerEmail: String(data.ownerEmail ?? ""),
+    listId: String(data.listId ?? ""),
+    listName: String(data.listName ?? ""),
+    email: String(data.email ?? ""),
+    status,
+    memberUid: typeof data.memberUid === "string" ? data.memberUid : null,
+    createdAt: toDate(data.createdAt),
+  };
+}
+
 export function toGroceryList(id: string, data: DocumentData): GroceryList {
   const { items, staleItemIds } = toGroceryListItems(data.items);
 
@@ -244,6 +274,12 @@ export function toGroceryList(id: string, data: DocumentData): GroceryList {
     items,
     legacyItems: Array.isArray(data.items),
     staleItemIds,
+    ownerId: typeof data.userId === "string" ? data.userId : undefined,
+    ownerName: typeof data.ownerName === "string" ? data.ownerName : "",
+    memberIds: Array.isArray(data.memberIds)
+      ? data.memberIds.filter((memberId: unknown): memberId is string => typeof memberId === "string")
+      : [],
+    members: toGroceryListMembers(data.members),
     purchaseId: typeof data.purchaseId === "string" ? data.purchaseId : null,
     paidTotal: typeof data.paidTotal === "number" && data.paidTotal > 0 ? data.paidTotal : null,
     createdAt: toDate(data.createdAt),

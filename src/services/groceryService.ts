@@ -26,8 +26,10 @@ import { db } from "@/lib/firebase";
 import { toDate, toGroceryList, toGroceryProduct } from "@/services/converters";
 import {
   costEntriesCollectionRef,
+  groceryInviteDocRef,
   groceryListDocRef,
   groceryListsCollectionRef,
+  groceryMemberDocRef,
   groceryProductDocRef,
   groceryProductsCollectionRef,
   groceryPurchasesCollectionRef,
@@ -204,9 +206,26 @@ export async function findPurchaseByReceiptKey(
   };
 }
 
-/** Exclui a lista; lancamento e compra ja registrados permanecem. */
-export async function deleteList(userId: string, listId: string): Promise<void> {
-  await deleteDoc(groceryListDocRef(userId, listId));
+/**
+ * Exclui a lista; lancamento e compra ja registrados permanecem. Se a lista foi
+ * compartilhada, apaga no mesmo lote os convites e os acessos ao catalogo de
+ * quem nao participa de outra lista.
+ */
+export async function deleteList(
+  userId: string,
+  listId: string,
+  cleanup: { inviteIds: readonly string[]; memberUids: readonly string[] } = { inviteIds: [], memberUids: [] },
+): Promise<void> {
+  if (cleanup.inviteIds.length === 0 && cleanup.memberUids.length === 0) {
+    await deleteDoc(groceryListDocRef(userId, listId));
+    return;
+  }
+
+  const batch = writeBatch(db);
+  batch.delete(groceryListDocRef(userId, listId));
+  for (const inviteId of cleanup.inviteIds) batch.delete(groceryInviteDocRef(inviteId));
+  for (const memberUid of cleanup.memberUids) batch.delete(groceryMemberDocRef(userId, memberUid));
+  await batch.commit();
 }
 
 /**

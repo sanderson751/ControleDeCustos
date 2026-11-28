@@ -1,4 +1,4 @@
-import { collection, doc } from "firebase/firestore";
+import { collection, collectionGroup, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 /**
@@ -14,7 +14,9 @@ import { db } from "@/lib/firebase";
  * users/{uid}/savingsGoals/{goalId}
  * users/{uid}/goalContributions/{contributionId}
  * users/{uid}/groceryProducts/{productId}
- * users/{uid}/groceryLists/{listId}
+ * users/{uid}/groceryLists/{listId}        (memberIds: participantes)
+ * users/{uid}/groceryMembers/{memberUid}   (acesso do participante ao catalogo)
+ * groceryInvites/{ownerId}_{listId}_{email}
  * users/{uid}/groceryPurchases/{purchaseId}
  * users/{uid}/groceryReceiptKeys/{receiptKey}
  */
@@ -102,6 +104,21 @@ export const groceryListDocRef = (uid: string, listId: string) =>
 
 export const groceryPurchasesCollectionRef = (uid: string) =>
   collection(db, USERS_COLLECTION, uid, GROCERY_PURCHASES_COLLECTION);
+
+/** Convites para listas: groceryInvites/{ownerId}_{listId}_{email} (colecao raiz). */
+export const GROCERY_INVITES_COLLECTION = "groceryInvites";
+export const GROCERY_MEMBERS_COLLECTION = "groceryMembers";
+
+export const groceryInvitesCollectionRef = () => collection(db, GROCERY_INVITES_COLLECTION);
+
+export const groceryInviteDocRef = (inviteId: string) => doc(db, GROCERY_INVITES_COLLECTION, inviteId);
+
+/** Acesso de um participante ao catalogo do dono: users/{dono}/groceryMembers/{uid}. */
+export const groceryMemberDocRef = (ownerId: string, memberUid: string) =>
+  doc(db, USERS_COLLECTION, ownerId, GROCERY_MEMBERS_COLLECTION, memberUid);
+
+/** Listas de todos os usuarios (consulta das listas compartilhadas comigo). */
+export const groceryListsGroupRef = () => collectionGroup(db, GROCERY_LISTS_COLLECTION);
 
 /** Comanda ja lancada (id = chave da NFC-e ou hash): garante que nao entra duas vezes. */
 export const groceryReceiptKeyDocRef = (uid: string, receiptKey: string) =>

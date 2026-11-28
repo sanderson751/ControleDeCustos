@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import type { GroceryList } from "@/domain/entities/grocery";
+import type { GroceryInvite, GroceryList } from "@/domain/entities/grocery";
 import type { UserRole } from "@/domain/entities/user";
 import { notify } from "@/lib/notify";
 import GroceryPage from "@/pages/GroceryPage";
@@ -10,6 +10,14 @@ import {
   subscribeToLists,
   subscribeToProducts,
 } from "@/services/groceryService";
+import { refreshEmailVerification, sendVerificationEmail } from "@/services/authService";
+import {
+  acceptInvite,
+  declineInvite,
+  listShareCleanup,
+  subscribeToMyInvites,
+  subscribeToSharedLists,
+} from "@/services/groceryShareService";
 import { makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
@@ -20,6 +28,17 @@ vi.mock("@/services/groceryService", () => ({
   subscribeToLists: vi.fn(),
   createList: vi.fn(),
   deleteList: vi.fn(),
+}));
+vi.mock("@/services/groceryShareService", () => ({
+  subscribeToSharedLists: vi.fn(),
+  subscribeToMyInvites: vi.fn(),
+  acceptInvite: vi.fn(),
+  declineInvite: vi.fn(),
+  listShareCleanup: vi.fn(),
+}));
+vi.mock("@/services/authService", () => ({
+  sendVerificationEmail: vi.fn(),
+  refreshEmailVerification: vi.fn(),
 }));
 
 const now = new Date(2026, 10, 27, 12);
@@ -38,8 +57,23 @@ const OPEN: GroceryList = {
 };
 const DONE: GroceryList = { ...OPEN, id: "feita", name: "Mês passado", status: "concluida", completedAt: now, purchaseId: "g1", paidTotal: 58.4 };
 
-function setup(role: UserRole = "standard", lists: GroceryList[] = [OPEN, DONE]) {
-  vi.mocked(useSession).mockReturnValue({ profile: makeProfile(role), firebaseUser: {} as never });
+function setup(
+  role: UserRole = "standard",
+  lists: GroceryList[] = [OPEN, DONE],
+  share: { verified?: boolean; invites?: GroceryInvite[]; shared?: GroceryList[] } = {},
+) {
+  vi.mocked(useSession).mockReturnValue({
+    profile: makeProfile(role),
+    firebaseUser: { email: `${role}@exemplo.com`, emailVerified: share.verified ?? true } as never,
+  });
+  vi.mocked(subscribeToSharedLists).mockImplementation((_uid, onData) => {
+    onData(share.shared ?? []);
+    return () => undefined;
+  });
+  vi.mocked(subscribeToMyInvites).mockImplementation((_email, onData) => {
+    onData(share.invites ?? []);
+    return () => undefined;
+  });
   vi.mocked(subscribeToProducts).mockImplementation((_uid, onData) => {
     onData([
       {
@@ -70,6 +104,7 @@ describe("GroceryPage", () => {
   beforeEach(() => {
     vi.mocked(createList).mockReturnValue({ id: "nova", written: Promise.resolve() });
     vi.mocked(deleteList).mockResolvedValue(undefined);
+    vi.mocked(listShareCleanup).mockResolvedValue({ inviteIds: [], memberUids: [], complete: true });
   });
 
   it("lista abertas com previsao e concluidas com data", () => {
@@ -114,7 +149,9 @@ describe("GroceryPage", () => {
     expect(dialog).toHaveTextContent("O lançamento e o histórico de preços da compra continuam.");
     await user.click(within(dialog).getByRole("button", { name: "Excluir" }));
 
-    await waitFor(() => expect(deleteList).toHaveBeenCalledWith("uid-standard", "feita"));
+    await waitFor(() =>
+      expect(deleteList).toHaveBeenCalledWith("uid-standard", "feita", { inviteIds: [], memberUids: [] }),
+    );
     expect(notify).toHaveBeenCalledWith("success", 'Lista "Mês passado" excluída.');
   });
 
@@ -123,5 +160,146 @@ describe("GroceryPage", () => {
 
     expect(screen.getByText("Nenhuma lista aberta.")).toBeInTheDocument();
     expect(screen.queryByRole("form", { name: "Nova lista" })).not.toBeInTheDocument();
+  });
+});
+
+describe("GroceryPage - compartilhamento", () => {
+  const INVITE: GroceryInvite = {
+    id: "uid-ana_l9_standard@exemplo.com",
+    ownerId: "uid-ana",
+    ownerName: "Ana",
+    ownerEmail: "ana@exemplo.com",
+    listId: "l9",
+    listName: "Churrasco",
+    email: "standard@exemplo.com",
+    status: "pendente",
+    memberUid: null,
+    createdAt: now,
+  };
+
+  beforeEach(() => {
+    vi.mocked(acceptInvite).mockResolvedValue(undefined);
+    vi.mocked(declineInvite).mockResolvedValue(undefined);
+    vi.mocked(deleteList).mockResolvedValue(undefined);
+  });
+
+  it("aceita convite e abre a lista compartilhada", async () => {
+    const { user } = setup("standard", [], { invites: [INVITE] });
+    const card = screen.getByRole("region", { name: "Convites para listas" });
+    expect(card).toHaveTextContent('Ana (ana@exemplo.com) convidou você para a lista "Churrasco"');
+
+    await user.click(within(card).getByRole("button", { name: "Aceitar convite para Churrasco" }));
+
+    await waitFor(() =>
+      expect(acceptInvite).toHaveBeenCalledWith(INVITE, {
+        uid: "uid-standard",
+        name: expect.any(String),
+        email: "standard@exemplo.com",
+      }),
+    );
+    expect(vi.mocked(notify)).toHaveBeenCalledWith("success", 'Você agora participa da lista "Churrasco".');
+  });
+
+  it("recusa convite", async () => {
+    const { user } = setup("standard", [], { invites: [INVITE] });
+    await user.click(screen.getByRole("button", { name: "Recusar convite para Churrasco" }));
+    await waitFor(() => expect(declineInvite).toHaveBeenCalledWith(INVITE.id));
+  });
+
+  it("sem e-mail confirmado nao busca convites e oferece a confirmacao", async () => {
+    vi.mocked(sendVerificationEmail).mockResolvedValue(undefined);
+    vi.mocked(refreshEmailVerification).mockResolvedValue(false);
+    const { user } = setup("standard", [], { verified: false, invites: [INVITE] });
+
+    expect(subscribeToMyInvites).not.toHaveBeenCalled();
+    const card = screen.getByRole("region", { name: "Confirme seu e-mail para receber convites" });
+    await user.click(within(card).getByRole("button", { name: "Enviar e-mail de confirmação" }));
+    await waitFor(() =>
+      expect(vi.mocked(notify)).toHaveBeenCalledWith("success", "Enviamos o link de confirmação para standard@exemplo.com."),
+    );
+
+    await user.click(within(card).getByRole("button", { name: "Já confirmei" }));
+    await waitFor(() =>
+      expect(vi.mocked(notify)).toHaveBeenCalledWith(
+        "warning",
+        "O e-mail ainda não foi confirmado. Abra o link que enviamos.",
+      ),
+    );
+
+    vi.mocked(refreshEmailVerification).mockResolvedValue(true);
+    await user.click(within(card).getByRole("button", { name: "Já confirmei" }));
+    await waitFor(() => expect(subscribeToMyInvites).toHaveBeenCalledWith("standard@exemplo.com", expect.any(Function), expect.any(Function)));
+    expect(await screen.findByRole("region", { name: "Convites para listas" })).toBeInTheDocument();
+  });
+
+  it("mostra listas compartilhadas comigo e quantos participam das minhas", () => {
+    const shared: GroceryList = { ...OPEN, id: "l9", name: "Churrasco", ownerId: "uid-ana", ownerName: "Ana" };
+    setup("standard", [{ ...OPEN, memberIds: ["uid-bia", "uid-caio"] }], { shared: [shared] });
+
+    const card = screen.getByRole("region", { name: "Lista compartilhada Churrasco" });
+    expect(card).toHaveTextContent("De Ana · 2 itens");
+    expect(within(card).getByRole("link", { name: "Abrir lista" })).toHaveAttribute(
+      "href",
+      "/grocery/compartilhada/uid-ana/l9",
+    );
+    expect(screen.getByRole("region", { name: "Lista Feira" })).toHaveTextContent("compartilhada com 2 pessoas");
+  });
+
+  it("aceite negado (lista concluida, excluida ou cheia): mensagem especifica", async () => {
+    vi.mocked(acceptInvite).mockRejectedValueOnce(Object.assign(new Error("denied"), { code: "permission-denied" }));
+    const { user } = setup("standard", [], { invites: [INVITE] });
+    await user.click(screen.getByRole("button", { name: "Aceitar convite para Churrasco" }));
+    await waitFor(() =>
+      expect(vi.mocked(notify)).toHaveBeenCalledWith(
+        "error",
+        "Não foi possível aceitar: a lista foi concluída, excluída, está cheia ou o convite foi cancelado. Você pode recusar o convite.",
+      ),
+    );
+  });
+
+  it("sem sinal nao tenta aceitar", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      const { user } = setup("standard", [], { invites: [INVITE] });
+      await user.click(screen.getByRole("button", { name: "Aceitar convite para Churrasco" }));
+      expect(acceptInvite).not.toHaveBeenCalled();
+      expect(vi.mocked(notify)).toHaveBeenCalledWith("warning", "Sem conexão: conecte-se para responder ao convite.");
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+
+  it("sem conferir os convites, nao exclui lista com participantes", async () => {
+    vi.mocked(listShareCleanup).mockResolvedValue({ inviteIds: [], memberUids: ["uid-bia"], complete: false });
+    const { user } = setup("standard", [{ ...OPEN, memberIds: ["uid-bia"] }]);
+
+    await user.click(screen.getByRole("button", { name: "Excluir Feira" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Excluir" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(notify)).toHaveBeenCalledWith(
+        "error",
+        "Não foi possível conferir os convites da lista compartilhada. Verifique a conexão e tente novamente.",
+      ),
+    );
+    expect(deleteList).not.toHaveBeenCalled();
+  });
+
+  it("excluir lista compartilhada leva convites e acessos no mesmo lote", async () => {
+    vi.mocked(listShareCleanup).mockResolvedValue({ inviteIds: ["aberta_bia@x.com"], memberUids: ["uid-bia"], complete: true });
+    const shared = { ...OPEN, memberIds: ["uid-bia"] };
+    const { user } = setup("standard", [shared]);
+
+    await user.click(screen.getByRole("button", { name: "Excluir Feira" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("será removida também para quem participa dela");
+    await user.click(within(dialog).getByRole("button", { name: "Excluir" }));
+
+    await waitFor(() =>
+      expect(deleteList).toHaveBeenCalledWith("uid-standard", "aberta", {
+        inviteIds: ["aberta_bia@x.com"],
+        memberUids: ["uid-bia"],
+      }),
+    );
   });
 });

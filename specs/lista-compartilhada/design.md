@@ -48,19 +48,55 @@ que o outro aparelho marcou enquanto isso.
 - Durante a conversão, um item que os dois aparelhos têm fica com a versão de quem gravou por último.
 - Sem transação: transações não funcionam offline, requisito do modo mercado.
 
-## D2 — convites e lista compartilhada (planejado)
+## D2 — convites e lista compartilhada
 
-- **Convite** `groceryInvites/{listId}_{email}` (coleção raiz): `ownerId`, `ownerName`, `listId`,
-  `listName`, `email` (minúsculas), `status` `pendente|aceito|recusado`, `memberUid`, datas.
-  O id fixo impede convite duplicado.
-- **Lista** ganha `memberIds[]` (≤ 5), `members` (nome/e-mail para exibição) e `ownerName`.
-- **Acesso ao catálogo** `users/{dono}/groceryMembers/{uid}`: libera leitura e criação de produto
-  (sempre sem preço) para quem participa de alguma lista do dono.
-- **Aceite** em um lote: convite → `aceito`, lista recebe o `uid` em `memberIds`, acesso ao catálogo.
-  A regra confere convite aceito, do e-mail do token (`email_verified`), para aquela lista.
-- **Participante**: altera só `items`/`updatedAt` de lista aberta; pode se retirar de `memberIds`.
-- **Listas do participante**: consulta de grupo de coleções `groceryLists` por
-  `memberIds array-contains uid` (índice em `firestore.indexes.json`).
-- **Telas**: botão Compartilhar (dono), convites e "Compartilhadas comigo" em Mercado, rotas
-  `/grocery/convites` e `/grocery/compartilhada/:donoId/:listId[/shop]`, confirmação de e-mail.
-- Sem servidor não há envio de e-mail: o dono compartilha o link (Web Share/WhatsApp/copiar).
+### Decisões
+
+- Compartilhamento **por lista** (pedido do usuário); só o dono conclui (o lançamento é dele).
+- Sem servidor (plano Spark) não há e-mail de convite: o convite fica guardado para o e-mail e o dono
+  envia o link `/grocery/convites` (Web Share no celular, cópia no computador).
+- Convite só vale para **e-mail confirmado** (`email_verified` no token): sem isso, alguém poderia
+  criar conta com o e-mail de outra pessoa e pegar o convite. Google já vem confirmado; e-mail e senha
+  confirma pelo link do Firebase (`sendEmailVerification`) e "Já confirmei" faz `reload` + token novo.
+
+### Dados e operações (`groceryShareService`)
+
+- **Convidar** (`inviteToList`): lote com o convite `groceryInvites/{ownerId}_{listId}_{email}` (pendente) e
+  `ownerName` na lista. Convite antigo do mesmo e-mail (recusado/aceito) é apagado antes.
+- **Aceitar** (`acceptInvite`): um lote — convite `aceito` + `memberUid`; lista com
+  `memberIds: arrayUnion(uid)` e `members.{uid}`; `users/{dono}/groceryMembers/{uid}`. As regras
+  conferem um contra o outro com `getAfter`.
+- **Recusar**: convite `recusado`. **Cancelar**: o dono apaga o convite.
+- **Sair** (`leaveList`) / **remover** (`removeMember`): lista sem o uid, convite apagado e, se a pessoa
+  não participa de outra lista do mesmo dono (consulta por `memberIds`), o acesso ao catálogo também.
+- **Excluir lista**: `listShareCleanup` reúne convites da lista e acessos de quem só estava nela;
+  `deleteList` apaga tudo no mesmo lote.
+- **Listas compartilhadas comigo**: consulta de grupo de coleções `groceryLists` com
+  `memberIds array-contains uid`. **Uma lista**: assinatura do documento (`subscribeToList`); ao perder
+  o acesso a assinatura falha e a tela mostra a mensagem.
+
+### Telas
+
+- **Lista (dono)**: botão Compartilhar / "Compartilhada (N)" abre `ShareListDialog` (e-mail,
+  participantes com Remover, convites com status, Enviar link).
+- **Mercado**: `GroceryInvitesCard` (confirmação de e-mail ou convites com Aceitar/Recusar) e
+  "Compartilhadas comigo"; listas próprias mostram "compartilhada com N pessoas".
+- **Lista e modo mercado do participante**: rotas `/grocery/compartilhada/:ownerId/:listId[/shop]`
+  (mesmas telas). `useGroceryList` assina o documento da lista e o catálogo do dono; itens e
+  produtos novos gravam no caminho do dono. Sem conclusão, orçamento, compartilhar nem "Usar
+  novamente"; botão "Sair da lista".
+- `/grocery/convites` redireciona para Mercado (link estável para o convite).
+
+### Riscos e limites
+
+- Convite só entra **pendente → aceito no mesmo lote** do aceite (`get` antes, `getAfter` depois): um
+  convite antigo não reabre a lista. O id inclui o dono (`{ownerId}_{listId}_{email}`) e o convite
+  traz `ownerEmail` conferido pelo token (o nome é livre; o e-mail mostrado não).
+- Apagar convite inexistente é permitido: remover/sair não trava se o convite já sumiu.
+- `members` só tem chaves de `memberIds`; o participante grava `updatedAt` só com o horário do servidor.
+- O conteúdo de cada item não é validado nas regras (não iteram mapas): um participante mal-intencionado
+  pode gravar itens grandes até o limite do documento; o dono o remove e exclui a lista.
+- Até 5 participantes por lista (convites pendentes contam na tela; as regras limitam `memberIds`).
+- Removido enquanto sem sinal: as alterações pendentes da pessoa são recusadas ao sincronizar.
+- O acesso ao catálogo vale para o dono inteiro (não por lista): quem participa de uma lista vê os
+  preços do catálogo do dono — necessário para a previsão e o autocomplete.

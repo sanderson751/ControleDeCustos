@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -47,6 +48,25 @@ export async function registerWithEmailAndPassword(
   await ensureUserProfile(credential.user);
 
   return credential.user;
+}
+
+/** Envia o link de confirmacao do e-mail (contas de e-mail e senha). */
+export async function sendVerificationEmail(): Promise<void> {
+  if (!auth.currentUser) throw new Error("Sessão encerrada.");
+  await sendEmailVerification(auth.currentUser);
+}
+
+/**
+ * Confere se o e-mail ja foi confirmado e renova o token, para as regras do
+ * Firestore enxergarem a confirmacao sem precisar sair e entrar de novo.
+ */
+export async function refreshEmailVerification(): Promise<boolean> {
+  const user = auth.currentUser;
+  if (!user) return false;
+  await user.reload();
+  if (!user.emailVerified) return false;
+  await user.getIdToken(true);
+  return true;
 }
 
 export async function loginWithGoogle(): Promise<User> {

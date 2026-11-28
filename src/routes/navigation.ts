@@ -34,6 +34,12 @@ export const ROUTES = {
   grocery: "/grocery",
   groceryList: (listId: string) => `/grocery/${encodeURIComponent(listId)}`,
   groceryShop: (listId: string) => `/grocery/${encodeURIComponent(listId)}/shop`,
+  /** Link enviado a quem foi convidado (os convites aparecem em Mercado). */
+  groceryInvites: "/grocery/convites",
+  sharedGroceryList: (ownerId: string, listId: string) =>
+    `/grocery/compartilhada/${encodeURIComponent(ownerId)}/${encodeURIComponent(listId)}`,
+  sharedGroceryShop: (ownerId: string, listId: string) =>
+    `/grocery/compartilhada/${encodeURIComponent(ownerId)}/${encodeURIComponent(listId)}/shop`,
   reports: "/reports",
   userProfiles: "/userProfiles",
 } as const;

@@ -42,6 +42,9 @@ export function createFirestoreMock() {
         enumerable: false,
       });
     }),
+    collectionGroup: vi.fn((_db: unknown, collectionId: string) => ({ path: `**/${collectionId}` })),
+    arrayUnion: vi.fn((...values: unknown[]) => ({ arrayUnion: values })),
+    arrayRemove: vi.fn((...values: unknown[]) => ({ arrayRemove: values })),
     query: vi.fn((ref: Ref, ...constraints: unknown[]) => ({
       ref,
       constraints,
@@ -91,11 +94,12 @@ export function timestamp(date: Date) {
   return { toDate: () => date };
 }
 
-export function docSnapshot(id: string, data: Record<string, unknown> | null) {
+export function docSnapshot(id: string, data: Record<string, unknown> | null, fromCache = false) {
   return {
     id,
     exists: () => data !== null,
     data: () => data ?? undefined,
+    metadata: { fromCache },
   };
 }
 

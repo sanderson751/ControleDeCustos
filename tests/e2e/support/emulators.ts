@@ -143,3 +143,17 @@ export async function createUser(role: Role, name = `Teste ${role}`): Promise<Te
 
   return { uid, email, password, name };
 }
+
+/** Abre o link de confirmação de e-mail mais recente enviado para `email` (emulador de Auth). */
+export async function openVerificationLink(email: string) {
+  const response = await check(
+    await fetch(`${AUTH}/emulator/v1/projects/${PROJECT}/oobCodes`),
+    "listar e-mails do Auth",
+  );
+  const { oobCodes = [] } = (await response.json()) as {
+    oobCodes?: Array<{ email: string; requestType: string; oobLink: string }>;
+  };
+  const link = oobCodes.filter((code) => code.email === email && code.requestType === "VERIFY_EMAIL").pop();
+  if (!link) throw new Error(`nenhum e-mail de confirmação para ${email}`);
+  await check(await fetch(link.oobLink), "confirmar e-mail");
+}

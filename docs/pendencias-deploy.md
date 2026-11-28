@@ -23,6 +23,11 @@ npm run firestore:deploy
 ```
 
 - [ ] Regras e índices publicados sem erro.
+- [ ] Lista compartilhada: o índice de grupo de coleções `groceryLists.memberIds` pode levar alguns
+      minutos para ficar pronto (Console → Firestore → Índices → Isenções). Até lá, "Compartilhadas
+      comigo" mostra erro de carregamento.
+- [ ] Contas de e-mail e senha recebem o link de confirmação do e-mail pelo próprio Firebase (modelo
+      em Authentication → Templates; o remetente padrão funciona no plano Spark).
 
 > As regras novas são a única barreira de segurança do app (não há mais backend).
 > Publique-as **antes** do deploy do site. Isso vale a cada nova versão das regras — por

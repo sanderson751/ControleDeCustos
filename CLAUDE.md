@@ -82,6 +82,9 @@ UI (`src/domain/rules/permissions.ts`) apenas esconde ações — ela DEVE estar
 - `standard`: CRUD nos próprios custos.
 - `guest`: somente leitura.
 - Novo usuário sempre nasce `standard`; o primeiro admin é promovido no Console do Firebase.
+- Lista de mercado compartilhada: quem aceita o convite do próprio e-mail **confirmado** entra em
+  `memberIds` da lista e altera só os itens (lê/cria produto sem preço no catálogo do dono);
+  conclusão, orçamento e custos continuam do dono.
 
 Ao alterar `firestore.rules`, `permissions.ts` ou o modelo de dados: atualize
 `tests/rules/firestore.rules.test.ts` e rode `npm run test:rules`.
@@ -96,7 +99,10 @@ users/{uid}/recurringCosts/{id}     # recorrencia mensal + cursor lastGenerated;
 users/{uid}/savingsGoals/{id}       # meta: name, targetAmount, deadlineYear/Month (opcional)
 users/{uid}/goalContributions/{id}  # movimentacao imutavel: goalId, amount (+deposito/-retirada), date, note
 users/{uid}/groceryProducts/{id}    # catalogo de mercado: name, unit, lastUnitPrice/previousUnitPrice, intervalos
-users/{uid}/groceryLists/{id}       # lista: items{itemId} (mapa, grava por item), status aberta|concluida (concluida = somente leitura), paidTotal
+users/{uid}/groceryLists/{id}       # lista: items{itemId} (mapa, grava por item), status aberta|concluida (concluida = somente leitura), paidTotal,
+                                   # memberIds/members/ownerName (participantes da lista compartilhada)
+users/{uid}/groceryMembers/{memberUid} # acesso do participante ao catalogo do dono (criado ao aceitar)
+groceryInvites/{ownerId}_{listId}_{email} # convite (raiz): pendente|aceito|recusado; so o e-mail confirmado le/responde
 users/{uid}/groceryPurchases/{id}   # compra imutavel: itens com preco pago, total, costEntryId, receiptKey
 users/{uid}/groceryReceiptKeys/{key} # comanda ja lancada (id = chave NFC-e/hash): impede lancar duas vezes
 users/{uid}/costEntries/{entryId}  # accountName, amount, costType, category, description, installmentsTotal, recurringId?,

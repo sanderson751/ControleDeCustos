@@ -25,7 +25,7 @@ Entregas:
 - RF-03: Listas gravadas no formato antigo continuam abrindo normalmente e são convertidas na primeira
   alteração, sem script de migração.
 
-### D2 — compartilhamento (planejado)
+### D2 — compartilhamento
 
 - RF-04: O dono de uma lista aberta convida uma pessoa pelo e-mail (até 5 participantes por lista).
 - RF-05: O convite aparece em Mercado para quem entra no app com aquele e-mail **confirmado**; a pessoa
@@ -36,6 +36,17 @@ Entregas:
   pode sair da lista.
 - RF-08: O dono vê os participantes e convites pendentes e pode cancelar convite ou remover alguém.
 - RF-09: Lista x orçamento, histórico de compras e custos do dono não aparecem para o participante.
+- RF-10: Quem entra com e-mail e senha sem confirmar o e-mail vê como confirmar (enviar o link e
+  "Já confirmei"); os convites aparecem depois da confirmação, sem sair do app.
+- RF-11: Ao excluir uma lista compartilhada, os convites e o acesso de quem só participava dela saem junto.
+  Sem conseguir conferir os convites (ex.: sem conexão), a exclusão de lista com participantes é recusada com aviso.
+- RF-12: Convidar, aceitar, recusar, cancelar, remover e sair exigem conexão (aviso quando sem sinal);
+  sair pede confirmação.
+- RF-13: Usuário `guest` pode aceitar convite e participar **somente consultando** (não altera itens).
+  Lista concluída continua visível para quem participa (inclusive o total pago), sem edição.
+- RF-14: Convite pendente de lista que foi concluída ou excluída continua aparecendo até a pessoa
+  recusar; aceitar mostra que a lista não aceita mais participantes. O dono cancela convites também
+  em lista concluída.
 
 ## Requisitos nao funcionais
 

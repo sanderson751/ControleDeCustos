@@ -111,6 +111,26 @@ export const appRoutes: RouteObject[] = [
             ),
           },
           {
+            path: ROUTES.groceryInvites,
+            element: <Navigate to={ROUTES.grocery} replace />,
+          },
+          {
+            path: "/grocery/compartilhada/:ownerId/:listId",
+            element: (
+              <PageSuspense>
+                <GroceryListPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: "/grocery/compartilhada/:ownerId/:listId/shop",
+            element: (
+              <PageSuspense>
+                <GroceryShopPage />
+              </PageSuspense>
+            ),
+          },
+          {
             path: ROUTES.goals,
             element: (
               <PageSuspense>

@@ -8,7 +8,7 @@ import { GROCERY_UNIT_LABELS } from "@/domain/entities/grocery";
 import { shopProgress } from "@/domain/rules/groceryInsights";
 import { forecastList, formatQuantity } from "@/domain/rules/groceryRules";
 import { canMutateCosts } from "@/domain/rules/permissions";
-import { useGroceryData } from "@/hooks/useGroceryData";
+import { useGroceryList } from "@/hooks/useGroceryList";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useOptimisticListItems } from "@/hooks/useOptimisticListItems";
 import { useWakeLock } from "@/hooks/useWakeLock";
@@ -23,13 +23,13 @@ import { ROUTES } from "@/routes/navigation";
  * sinal (sincronizam quando a conexao volta).
  */
 export default function GroceryShopPage() {
-  const { listId = "" } = useParams<{ listId: string }>();
+  const { listId = "", ownerId: ownerParam } = useParams<{ listId: string; ownerId: string }>();
   const { profile } = useSession();
   const userId = profile.userId;
-  const { products, lists, isLoading, error } = useGroceryData(userId);
+  const ownerId = ownerParam ?? userId;
+  const { products, list, isShared, isLoading, error } = useGroceryList(userId, ownerId, listId);
   const [isCompleting, setIsCompleting] = useState(false);
-  const list = lists.find((item) => item.id === listId) ?? null;
-  const { items, update } = useOptimisticListItems(userId, list);
+  const { items, update } = useOptimisticListItems(ownerId, list);
   const editable = canMutateCosts(profile.role) && list?.status === "aberta";
   const online = useOnlineStatus();
   const wakeLock = useWakeLock(editable);
@@ -38,7 +38,15 @@ export default function GroceryShopPage() {
 
   const backLink = (
     <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
-      <Link to={list ? ROUTES.groceryList(list.id) : ROUTES.grocery}>
+      <Link
+        to={
+          list
+            ? isShared
+              ? ROUTES.sharedGroceryList(ownerId, list.id)
+              : ROUTES.groceryList(list.id)
+            : ROUTES.grocery
+        }
+      >
         <ArrowLeftIcon aria-hidden="true" />
         {list ? "Voltar para a lista" : "Voltar para Mercado"}
       </Link>
@@ -183,14 +191,19 @@ export default function GroceryShopPage() {
         </ul>
       )}
 
-      {editable && (
+      {editable && !isShared && (
         <Button size="lg" className="w-full" onClick={() => setIsCompleting(true)} disabled={items.length === 0}>
           <CheckCheckIcon aria-hidden="true" />
           Concluir compra
         </Button>
       )}
+      {editable && isShared && (
+        <p className="text-center text-sm text-muted-foreground">
+          {`Só ${list.ownerName || "o dono da lista"} pode concluir esta compra.`}
+        </p>
+      )}
 
-      {isCompleting && (
+      {isCompleting && !isShared && (
         <CompleteListDialog
           userId={userId}
           list={{ ...list, items: [...items] }}
