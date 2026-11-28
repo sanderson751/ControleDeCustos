@@ -1,4 +1,12 @@
-import { ArrowLeftIcon, CheckCheckIcon, CopyIcon, ShoppingCartIcon, Trash2Icon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  CheckCheckIcon,
+  CopyIcon,
+  LogOutIcon,
+  ShoppingCartIcon,
+  Trash2Icon,
+  UsersIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { AddItemForm } from "@/components/grocery/AddItemForm";
@@ -6,8 +14,19 @@ import { CompleteListDialog } from "@/components/grocery/CompleteListDialog";
 import { ListBudgetCard } from "@/components/grocery/ListBudgetCard";
 import { PriceTrendBadge } from "@/components/grocery/PriceTrendBadge";
 import { RestockCard } from "@/components/grocery/RestockCard";
+import { ShareListDialog } from "@/components/grocery/ShareListDialog";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { PageHeader } from "@/components/shared/PageHeader";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,9 +57,11 @@ import {
   validateQuantity,
 } from "@/domain/rules/groceryRules";
 import { restockSuggestions } from "@/domain/rules/groceryInsights";
+import { listMemberIds } from "@/domain/rules/groceryShareRules";
 import { canMutateCosts } from "@/domain/rules/permissions";
-import { useGroceryData } from "@/hooks/useGroceryData";
+import { useGroceryList } from "@/hooks/useGroceryList";
 import { useOptimisticListItems } from "@/hooks/useOptimisticListItems";
+import { useShareActor } from "@/hooks/useShareActor";
 import { formatCurrencyBRL } from "@/lib/currency";
 import { formatDateBR } from "@/lib/dates";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
@@ -48,6 +69,7 @@ import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
 import { ROUTES } from "@/routes/navigation";
 import { createList, createProduct } from "@/services/groceryService";
+import { leaveList } from "@/services/groceryShareService";
 
 function QuantityInput({
   item,
@@ -96,22 +118,27 @@ function QuantityInput({
 }
 
 export default function GroceryListPage() {
-  const { listId = "" } = useParams<{ listId: string }>();
+  const { listId = "", ownerId: ownerParam } = useParams<{ listId: string; ownerId: string }>();
   const { profile } = useSession();
   const userId = profile.userId;
+  // Lista compartilhada: os itens e o catalogo ficam no caminho do dono.
+  const ownerId = ownerParam ?? userId;
   const canEdit = canMutateCosts(profile.role);
   const navigate = useNavigate();
-  const { products, lists, isLoading, error } = useGroceryData(userId);
+  const { actor } = useShareActor();
+  const { products, list, isShared, isLoading, error } = useGroceryList(userId, ownerId, listId);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isReusing, setIsReusing] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   // Modo mercado costuma abrir ja sem sinal: baixa a tela enquanto ha conexao.
   useEffect(() => {
     void import("@/pages/GroceryShopPage").catch(() => undefined);
   }, []);
 
-  const list = lists.find((item) => item.id === listId) ?? null;
-  const { items, update } = useOptimisticListItems(userId, list);
+  const { items, update } = useOptimisticListItems(ownerId, list);
   const forecast = useMemo(() => forecastList(items, products), [items, products]);
   const editable = canEdit && list?.status === "aberta";
   const suggestions = useMemo(
@@ -135,7 +162,7 @@ export default function GroceryListPage() {
 
     if (!product && input.newProduct) {
       try {
-        const write = createProduct(userId, input.newProduct);
+        const write = createProduct(ownerId, input.newProduct);
         product = { id: write.id, name: input.newProduct.name };
         created = write.written;
       } catch (createError) {
@@ -189,6 +216,24 @@ export default function GroceryListPage() {
     }
   }
 
+  async function handleLeave() {
+    setConfirmLeave(false);
+    if (!list) return;
+    if (!navigator.onLine) {
+      notify("warning", "Sem conexão: conecte-se para sair da lista.");
+      return;
+    }
+    setIsLeaving(true);
+    try {
+      await leaveList(ownerId, list.id, actor);
+      notify("success", `Você saiu da lista "${list.name}".`);
+      navigate(ROUTES.grocery);
+    } catch (leaveError) {
+      notify("error", friendlyFirestoreErrorMessage(leaveError, "Falha ao sair da lista."));
+      setIsLeaving(false);
+    }
+  }
+
   const backLink = (
     <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
       <Link to={ROUTES.grocery}>
@@ -227,41 +272,83 @@ export default function GroceryListPage() {
   }
 
   const checkedCount = items.filter((item) => item.checked).length;
+  const memberCount = listMemberIds(list).length;
+  const ownerName = list.ownerName || "o dono da lista";
+  const shopPath = isShared ? ROUTES.sharedGroceryShop(ownerId, list.id) : ROUTES.groceryShop(list.id);
 
   return (
     <section className="space-y-8" data-testid="grocery-list-screen">
       {backLink}
       <PageHeader
-        eyebrow="Lista de mercado"
+        eyebrow={isShared ? `Lista de ${ownerName}` : "Lista de mercado"}
         title={list.name}
         description={
-          list.status === "concluida"
-            ? `Compra concluída${list.completedAt ? ` em ${formatDateBR(list.completedAt)}` : ""}${list.paidTotal !== null ? ` · total pago ${formatCurrencyBRL(list.paidTotal)}` : ""}. Os valores abaixo são a previsão atual; use novamente para planejar a próxima compra.`
-            : "Os valores previstos usam o preço que você pagou na última compra de cada produto."
+          isShared
+            ? list.status === "concluida"
+              ? `Compra concluída por ${ownerName}. A lista está somente para consulta.`
+              : `Lista compartilhada: você inclui e marca itens; só ${ownerName} conclui a compra. Os valores previstos usam os preços da última compra de ${ownerName}.`
+            : list.status === "concluida"
+              ? `Compra concluída${list.completedAt ? ` em ${formatDateBR(list.completedAt)}` : ""}${list.paidTotal !== null ? ` · total pago ${formatCurrencyBRL(list.paidTotal)}` : ""}. Os valores abaixo são a previsão atual; use novamente para planejar a próxima compra.`
+              : "Os valores previstos usam o preço que você pagou na última compra de cada produto."
         }
         actions={
-          list.status === "concluida" ? (
-            canEdit && (
-              <LoadingButton
-                isLoading={isReusing}
-                loadingText="Criando..."
-                icon={<CopyIcon aria-hidden="true" />}
-                onClick={handleReuse}
-              >
-                Usar novamente
-              </LoadingButton>
-            )
-          ) : (
+          isShared ? (
             <div className="flex flex-wrap gap-2">
-              {items.length > 0 && (
+              {list.status === "aberta" && items.length > 0 && (
                 <Button asChild variant="outline">
-                  <Link to={ROUTES.groceryShop(list.id)}>
+                  <Link to={shopPath}>
                     <ShoppingCartIcon aria-hidden="true" />
                     Modo mercado
                   </Link>
                 </Button>
               )}
-              {editable && (
+              <LoadingButton
+                variant="ghost"
+                isLoading={isLeaving}
+                loadingText="Saindo..."
+                icon={<LogOutIcon aria-hidden="true" />}
+                onClick={() => setConfirmLeave(true)}
+              >
+                Sair da lista
+              </LoadingButton>
+            </div>
+          ) : list.status === "concluida" ? (
+            <div className="flex flex-wrap gap-2">
+              {/* Concluida: o dono ainda remove quem participa e cancela convites. */}
+              {(canEdit || memberCount > 0) && (
+                <Button variant="outline" onClick={() => setIsSharing(true)}>
+                  <UsersIcon aria-hidden="true" />
+                  {memberCount > 0 ? `Compartilhada (${memberCount})` : "Participantes e convites"}
+                </Button>
+              )}
+              {canEdit && (
+                <LoadingButton
+                  isLoading={isReusing}
+                  loadingText="Criando..."
+                  icon={<CopyIcon aria-hidden="true" />}
+                  onClick={handleReuse}
+                >
+                  Usar novamente
+                </LoadingButton>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {canEdit && (
+                <Button variant="outline" onClick={() => setIsSharing(true)}>
+                  <UsersIcon aria-hidden="true" />
+                  {memberCount > 0 ? `Compartilhada (${memberCount})` : "Compartilhar"}
+                </Button>
+              )}
+              {items.length > 0 && (
+                <Button asChild variant="outline">
+                  <Link to={shopPath}>
+                    <ShoppingCartIcon aria-hidden="true" />
+                    Modo mercado
+                  </Link>
+                </Button>
+              )}
+              {editable && !isShared && (
                 <Button onClick={() => setIsCompleting(true)} disabled={items.length === 0}>
                   <CheckCheckIcon aria-hidden="true" />
                   Concluir compra
@@ -403,9 +490,27 @@ export default function GroceryListPage() {
         </CardContent>
       </Card>
 
-      {list.status === "aberta" && <ListBudgetCard userId={userId} forecast={forecast.total} />}
+      {/* Orçamento e conclusão são do dono. */}
+      {!isShared && list.status === "aberta" && <ListBudgetCard userId={userId} forecast={forecast.total} />}
 
-      {isCompleting && (
+      {isSharing && !isShared && <ShareListDialog owner={actor} list={list} onClose={() => setIsSharing(false)} />}
+
+      <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair da lista?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`Você deixa de ver "${list.name}". Para voltar, ${ownerName} precisa convidar você de novo.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleLeave()}>Sair</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {isCompleting && !isShared && (
         <CompleteListDialog
           userId={userId}
           list={{ ...list, items: [...items] }}

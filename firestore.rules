@@ -10,6 +10,10 @@ rules_version = '2';
 //   admin    -> CRUD nos proprios custos + gestao de nome/papel de outros usuarios
 //   standard -> CRUD nos proprios custos
 //   guest    -> somente leitura dos proprios custos
+//
+// Lista de mercado compartilhada: o dono convida um e-mail (groceryInvites);
+// quem aceita com o e-mail CONFIRMADO entra em memberIds e altera so os itens
+// da lista aberta (e le/cria produtos sem preco no catalogo do dono).
 // ---------------------------------------------------------------------------
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -243,7 +247,14 @@ service cloud.firestore {
 
     function isValidGroceryList(data) {
       return data.keys().hasOnly(['userId', 'name', 'status', 'items', 'purchaseId',
-          'paidTotal', 'completedAt', 'createdAt', 'updatedAt'])
+          'paidTotal', 'completedAt', 'createdAt', 'updatedAt', 'ownerName', 'memberIds', 'members'])
+        && data.get('ownerName', '') is string
+        && data.get('ownerName', '').size() <= 80
+        && data.get('memberIds', []) is list
+        && data.get('memberIds', []).size() <= 5
+        && data.get('members', {}) is map
+        && data.get('members', {}).size() <= 5
+        && data.get('members', {}).keys().hasOnly(data.get('memberIds', []))
         && data.name is string
         && data.name.size() > 0
         && data.name.size() <= 60
@@ -284,6 +295,55 @@ service cloud.firestore {
     }
 
     // Conclusao: compra NOVA, da propria lista, gravada no mesmo lote.
+    // E-mail do login, confirmado (Google ja vem confirmado; e-mail e senha confirma pelo link).
+    function tokenEmail() {
+      return request.auth.token.get('email', '').lower();
+    }
+
+    function hasVerifiedEmail() {
+      return isSignedIn()
+        && tokenEmail().size() > 0
+        && request.auth.token.get('email_verified', false) == true;
+    }
+
+    function listPath(ownerId, listId) {
+      return /databases/$(database)/documents/users/$(ownerId)/groceryLists/$(listId);
+    }
+
+    function invitePath(inviteId) {
+      return /databases/$(database)/documents/groceryInvites/$(inviteId);
+    }
+
+    function isListMember(data) {
+      return isSignedIn() && request.auth.uid in data.get('memberIds', []);
+    }
+
+    // Participa de alguma lista do dono: le o catalogo e cria produto sem preco.
+    function isGroceryMember(ownerId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(ownerId)/groceryMembers/$(request.auth.uid));
+    }
+
+    function isProductWithoutHistory(data) {
+      return data.get('lastUnitPrice', null) == null
+        && data.get('previousUnitPrice', null) == null
+        && data.get('lastPurchasedAt', null) == null
+        && data.get('lastStore', '') == ''
+        && data.get('purchaseCount', 0) == 0
+        && data.get('avgIntervalDays', null) == null
+        && data.get('intervalCount', 0) == 0
+        && data.get('aliases', []).size() == 0;
+    }
+
+    function isValidMemberEntry(entry) {
+      return entry is map
+        && entry.keys().hasOnly(['name', 'email'])
+        && entry.name is string
+        && entry.name.size() > 0
+        && entry.name.size() <= 80
+        && entry.email == tokenEmail();
+    }
+
     function isNewPurchaseOf(userId, listId, purchaseId) {
       return purchaseId is string
         && !exists(/databases/$(database)/documents/users/$(userId)/groceryPurchases/$(purchaseId))
@@ -338,12 +398,20 @@ service cloud.firestore {
       }
 
       match /groceryProducts/{productId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isGroceryMember(userId);
 
         allow create: if isOwner(userId)
           && canWriteCosts()
           && request.resource.data.userId == userId
           && isValidGroceryProduct(request.resource.data)
+          && hasServerTimestamps(request.resource.data);
+
+        // Participante inclui produto novo no catalogo do dono, sempre sem preco.
+        allow create: if isGroceryMember(userId)
+          && canWriteCosts()
+          && request.resource.data.userId == userId
+          && isValidGroceryProduct(request.resource.data)
+          && isProductWithoutHistory(request.resource.data)
           && hasServerTimestamps(request.resource.data);
 
         allow update: if isOwner(userId)
@@ -356,6 +424,7 @@ service cloud.firestore {
 
       // Lista concluida e somente leitura (reaproveitar = nova lista).
       match /groceryLists/{listId} {
+        // Participantes leem pela regra de grupo de colecoes (fim do arquivo).
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
@@ -363,6 +432,8 @@ service cloud.firestore {
           && request.resource.data.userId == userId
           && request.resource.data.status == 'aberta'
           && request.resource.data.get('purchaseId', null) == null
+          && request.resource.data.get('memberIds', []).size() == 0
+          && request.resource.data.get('members', {}).size() == 0
           && isValidGroceryList(request.resource.data)
           && hasServerTimestamps(request.resource.data);
 
@@ -373,9 +444,51 @@ service cloud.firestore {
           && isValidGroceryList(request.resource.data)
           // Lista ja em mapa nao volta a array (aba com versao antiga apagaria os itens).
           && (!(resource.data.items is map) || request.resource.data.items is map)
+          // O dono so remove participantes; entrar exige o convite aceito pela pessoa.
+          && request.resource.data.get('memberIds', []).hasOnly(resource.data.get('memberIds', []))
           // Concluir exige a compra registrada no mesmo lote.
           && (request.resource.data.status == 'aberta'
             || isNewPurchaseOf(userId, listId, request.resource.data.purchaseId));
+
+        // Dono remove participante tambem de lista concluida.
+        allow update: if isOwner(userId)
+          && changedKeys().hasOnly(['memberIds', 'members', 'updatedAt'])
+          && changedKeys().hasAny(['memberIds'])
+          && request.resource.data.get('memberIds', []).hasOnly(resource.data.get('memberIds', []))
+          && request.resource.data.get('members', {}).keys().hasOnly(resource.data.get('members', {}).keys());
+
+        // Participante altera so os itens de lista aberta.
+        allow update: if isListMember(resource.data)
+          && canWriteCosts()
+          && resource.data.status == 'aberta'
+          && changedKeys().hasOnly(['items', 'updatedAt'])
+          && request.resource.data.get('updatedAt', null) == request.time
+          && isValidGroceryList(request.resource.data)
+          && (!(resource.data.items is map) || request.resource.data.items is map);
+
+        // Entrar na lista: so com o convite do proprio e-mail aceito no mesmo lote.
+        allow update: if hasVerifiedEmail()
+          && !isOwner(userId)
+          && resource.data.status == 'aberta'
+          && !(request.auth.uid in resource.data.get('memberIds', []))
+          && changedKeys().hasOnly(['memberIds', 'members', 'updatedAt'])
+          && request.resource.data.memberIds == resource.data.get('memberIds', []).concat([request.auth.uid])
+          && isValidGroceryList(request.resource.data)
+          && request.resource.data.members.diff(resource.data.get('members', {})).affectedKeys().hasOnly([request.auth.uid])
+          && isValidMemberEntry(request.resource.data.members[request.auth.uid])
+          // Convite pendente que passa a aceito NESTE lote (convite antigo nao reabre a lista).
+          && get(invitePath(userId + '_' + listId + '_' + tokenEmail())).data.status == 'pendente'
+          && getAfter(invitePath(userId + '_' + listId + '_' + tokenEmail())).data.status == 'aceito'
+          && getAfter(invitePath(userId + '_' + listId + '_' + tokenEmail())).data.memberUid == request.auth.uid
+          && getAfter(invitePath(userId + '_' + listId + '_' + tokenEmail())).data.ownerId == userId
+          && getAfter(invitePath(userId + '_' + listId + '_' + tokenEmail())).data.listId == listId;
+
+        // Sair da lista (aberta ou concluida).
+        allow update: if isListMember(resource.data)
+          && changedKeys().hasOnly(['memberIds', 'members', 'updatedAt'])
+          && request.resource.data.get('memberIds', []) == resource.data.memberIds.removeAll([request.auth.uid])
+          && request.resource.data.get('members', {}).diff(resource.data.get('members', {})).affectedKeys().hasOnly([request.auth.uid])
+          && !(request.auth.uid in request.resource.data.get('members', {}));
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }
@@ -421,6 +534,28 @@ service cloud.firestore {
         allow update: if false;
 
         allow delete: if isOwner(userId) && canWriteCosts();
+      }
+
+      // Acesso do participante ao catalogo do dono (criado ao aceitar um convite).
+      match /groceryMembers/{memberUid} {
+        allow get: if isOwner(userId) || (isSignedIn() && request.auth.uid == memberUid);
+        allow list: if isOwner(userId);
+
+        allow create, update: if hasVerifiedEmail()
+          && request.auth.uid == memberUid
+          && !isOwner(userId)
+          && request.resource.data.keys().hasOnly(['ownerId', 'memberUid', 'email', 'name', 'listId', 'createdAt'])
+          && request.resource.data.ownerId == userId
+          && request.resource.data.memberUid == memberUid
+          && request.resource.data.email == tokenEmail()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.listId is string
+          && request.resource.data.listId.size() <= 40
+          && request.auth.uid in getAfter(listPath(userId, request.resource.data.listId)).data.get('memberIds', []);
+
+        allow delete: if isOwner(userId) || (isSignedIn() && request.auth.uid == memberUid);
       }
 
       match /savingsGoals/{goalId} {
@@ -526,6 +661,66 @@ service cloud.firestore {
 
         allow delete: if isOwner(userId) && canWriteCosts();
       }
+    }
+
+    // Convite para uma lista de mercado: id = {ownerId}_{listId}_{email}.
+    match /groceryInvites/{inviteId} {
+      function isInviteOwner() {
+        return isSignedIn() && resource.data.ownerId == request.auth.uid;
+      }
+
+      function isInvitee() {
+        return hasVerifiedEmail() && resource.data.email == tokenEmail();
+      }
+
+      allow read: if isInviteOwner() || isInvitee();
+
+      allow create: if isSignedIn()
+        && canWriteCosts()
+        && request.resource.data.keys().hasOnly(['ownerId', 'ownerName', 'ownerEmail', 'listId', 'listName',
+            'email', 'status', 'memberUid', 'createdAt', 'respondedAt'])
+        && request.resource.data.ownerId == request.auth.uid
+        // E-mail real de quem convida (o nome e livre; o e-mail nao).
+        && request.resource.data.ownerEmail == tokenEmail()
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.get('memberUid', null) == null
+        && request.resource.data.get('respondedAt', null) == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 120
+        && request.resource.data.email.matches('^[a-z0-9._%+-]+@[a-z0-9.-]+[.][a-z]{2,}$')
+        && request.resource.data.email != tokenEmail()
+        && request.resource.data.ownerName is string
+        && request.resource.data.ownerName.size() > 0
+        && request.resource.data.ownerName.size() <= 80
+        && request.resource.data.listName is string
+        && request.resource.data.listName.size() > 0
+        && request.resource.data.listName.size() <= 60
+        && request.resource.data.listId is string
+        && request.resource.data.listId.size() <= 40
+        && inviteId == request.auth.uid + '_' + request.resource.data.listId + '_' + request.resource.data.email
+        // Lista propria, aberta e com vaga.
+        && exists(listPath(request.auth.uid, request.resource.data.listId))
+        && get(listPath(request.auth.uid, request.resource.data.listId)).data.status == 'aberta'
+        && get(listPath(request.auth.uid, request.resource.data.listId)).data.get('memberIds', []).size() < 5;
+
+      // Quem foi convidado aceita (entrando na lista no mesmo lote) ou recusa.
+      allow update: if isInvitee()
+        && resource.data.status == 'pendente'
+        && changedKeys().hasOnly(['status', 'memberUid', 'respondedAt'])
+        && request.resource.data.respondedAt == request.time
+        && ((request.resource.data.status == 'recusado' && request.resource.data.get('memberUid', null) == null)
+          || (request.resource.data.status == 'aceito'
+            && request.resource.data.memberUid == request.auth.uid
+            && request.auth.uid in getAfter(listPath(resource.data.ownerId, resource.data.listId)).data.get('memberIds', [])));
+
+      // Apagar convite que ja nao existe nao faz mal (o lote de remover/sair nao trava).
+      allow delete: if resource == null || isInviteOwner() || isInvitee();
+    }
+
+    // Listas compartilhadas comigo (consulta de grupo por memberIds) e leitura da lista.
+    match /{path=**}/groceryLists/{listId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.get('memberIds', []);
     }
   }
 }

@@ -57,7 +57,38 @@ export type GroceryList = {
   legacyItems?: boolean;
   /** Itens incompletos no mapa (sobra de remocao concorrente): apagados na proxima gravacao. */
   staleItemIds?: string[];
+  /** Dono da lista (o caminho users/{ownerId}); igual ao usuario nas listas proprias. */
+  ownerId?: string;
+  /** Nome do dono, exibido para quem participa. */
+  ownerName?: string;
+  /** Participantes (convite aceito), ate MAX_LIST_MEMBERS. */
+  memberIds?: string[];
+  /** Nome e e-mail de cada participante, para exibicao. */
+  members?: Record<string, GroceryListMember>;
 };
+
+export type GroceryListMember = { name: string; email: string };
+
+export type GroceryInviteStatus = "pendente" | "aceito" | "recusado";
+
+/** Convite para uma lista (groceryInvites/{ownerId}_{listId}_{email}). */
+export type GroceryInvite = {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  /** E-mail de quem convidou (conferido pelas regras: o nome e livre). */
+  ownerEmail: string;
+  listId: string;
+  listName: string;
+  email: string;
+  status: GroceryInviteStatus;
+  memberUid: string | null;
+  createdAt: Date;
+};
+
+export const MAX_LIST_MEMBERS = 5;
+export const MAX_MEMBER_NAME_LENGTH = 80;
+export const MAX_INVITE_EMAIL_LENGTH = 120;
 
 export type GroceryPurchaseItem = {
   productId: string | null;

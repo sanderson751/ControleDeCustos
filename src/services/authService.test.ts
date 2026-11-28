@@ -6,7 +6,9 @@ import {
   loginWithEmailAndPassword,
   loginWithGoogle,
   logout,
+  refreshEmailVerification,
   registerWithEmailAndPassword,
+  sendVerificationEmail,
   subscribeToAuthState,
 } from "@/services/authService";
 import * as userService from "@/services/userService";
@@ -16,6 +18,7 @@ vi.mock("firebase/auth", () => ({
   onAuthStateChanged: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
   signInWithPopup: vi.fn(),
+  sendEmailVerification: vi.fn(async () => undefined),
   signOut: vi.fn(async () => undefined),
   updateProfile: vi.fn(async () => undefined),
 }));
@@ -129,5 +132,28 @@ describe("authService", () => {
 
     vi.mocked(waitForPendingWrites).mockReturnValueOnce(new Promise(() => undefined));
     await expect(hasUnsyncedChanges(10)).resolves.toBe(true);
+  });
+
+  it("envia o link de confirmacao do e-mail para o usuario atual", async () => {
+    await expect(sendVerificationEmail()).rejects.toThrow();
+    (auth as { currentUser: unknown }).currentUser = fakeUser;
+    await sendVerificationEmail();
+    expect(mockedAuth.sendEmailVerification).toHaveBeenCalledWith(fakeUser);
+  });
+
+  it("confirmacao do e-mail: recarrega o usuario e renova o token so quando confirmado", async () => {
+    await expect(refreshEmailVerification()).resolves.toBe(false);
+
+    const user = { emailVerified: false, reload: vi.fn(async () => undefined), getIdToken: vi.fn(async () => "t") };
+    (auth as { currentUser: unknown }).currentUser = user;
+    await expect(refreshEmailVerification()).resolves.toBe(false);
+    expect(user.reload).toHaveBeenCalled();
+    expect(user.getIdToken).not.toHaveBeenCalled();
+
+    user.reload.mockImplementationOnce(async () => {
+      user.emailVerified = true;
+    });
+    await expect(refreshEmailVerification()).resolves.toBe(true);
+    expect(user.getIdToken).toHaveBeenCalledWith(true);
   });
 });

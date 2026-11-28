@@ -1,6 +1,7 @@
-import { CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { GroceryInvitesCard } from "@/components/grocery/GroceryInvitesCard";
 import { PriceHistorySection } from "@/components/grocery/PriceHistorySection";
 import { LoadingButton } from "@/components/shared/LoadingButton";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -34,8 +35,11 @@ import {
   reuseListItems,
   validateListName,
 } from "@/domain/rules/groceryRules";
+import { listMemberIds } from "@/domain/rules/groceryShareRules";
 import { canMutateCosts } from "@/domain/rules/permissions";
 import { useGroceryData } from "@/hooks/useGroceryData";
+import { useShareActor } from "@/hooks/useShareActor";
+import { useSharedGrocery } from "@/hooks/useSharedGrocery";
 import { formatCurrencyBRL } from "@/lib/currency";
 import { formatDateBR } from "@/lib/dates";
 import { friendlyFirestoreErrorMessage } from "@/lib/errors";
@@ -43,6 +47,7 @@ import { notify } from "@/lib/notify";
 import { useSession } from "@/providers/AuthProvider";
 import { ROUTES } from "@/routes/navigation";
 import { createList, deleteList } from "@/services/groceryService";
+import { listShareCleanup } from "@/services/groceryShareService";
 
 function plural(count: number, singular: string, pluralForm: string) {
   return `${count} ${count === 1 ? singular : pluralForm}`;
@@ -54,6 +59,8 @@ export default function GroceryPage() {
   const canEdit = canMutateCosts(profile.role);
   const navigate = useNavigate();
   const { products, lists, isLoading, error } = useGroceryData(userId);
+  const { actor, emailVerified, recheckEmail } = useShareActor();
+  const shared = useSharedGrocery(userId, actor.email, emailVerified);
   const [name, setName] = useState(() => defaultListName());
   const [isCreating, setIsCreating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -111,7 +118,16 @@ export default function GroceryPage() {
     if (!target) return;
 
     try {
-      await deleteList(userId, target.id);
+      // Lista compartilhada: convites e acessos de quem so participava dela saem junto.
+      const cleanup = await listShareCleanup(userId, target, lists);
+      if (!cleanup.complete && listMemberIds(target).length > 0) {
+        notify(
+          "error",
+          "Não foi possível conferir os convites da lista compartilhada. Verifique a conexão e tente novamente.",
+        );
+        return;
+      }
+      await deleteList(userId, target.id, { inviteIds: cleanup.inviteIds, memberUids: cleanup.memberUids });
       notify("success", `Lista "${target.name}" excluída.`);
     } catch (deleteError) {
       notify("error", friendlyFirestoreErrorMessage(deleteError, "Falha ao excluir a lista."));
@@ -161,6 +177,43 @@ export default function GroceryPage() {
         </Card>
       )}
 
+      <GroceryInvitesCard
+        actor={actor}
+        emailVerified={emailVerified}
+        invites={shared.invites}
+        onRecheckEmail={recheckEmail}
+      />
+
+      {shared.sharedLists.length > 0 && (
+        <section className="space-y-4" aria-labelledby="shared-lists-title">
+          <h2 id="shared-lists-title" className="font-heading text-2xl">
+            Compartilhadas comigo
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {shared.sharedLists.map((list) => (
+              <Card key={`${list.ownerId}-${list.id}`} role="region" aria-label={`Lista compartilhada ${list.name}`}>
+                <CardHeader>
+                  <CardTitle className="text-xl">{list.name}</CardTitle>
+                  <CardDescription>
+                    {`De ${list.ownerName || "outra pessoa"} · ${plural(list.items.length, "item", "itens")}${list.status === "concluida" ? " · compra concluída" : ""}`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild size="sm" variant={list.status === "aberta" ? "default" : "outline"}>
+                    <Link to={ROUTES.sharedGroceryList(list.ownerId ?? "", list.id)}>Abrir lista</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+      {shared.error && (
+        <p className="text-sm text-destructive" role="alert">
+          {shared.error}
+        </p>
+      )}
+
       {error ? (
         <p className="text-destructive" role="alert">
           {error}
@@ -184,7 +237,15 @@ export default function GroceryPage() {
                   return (
                     <Card key={list.id} role="region" aria-label={`Lista ${list.name}`}>
                       <CardHeader>
-                        <CardTitle className="text-xl">{list.name}</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-xl">
+                          {list.name}
+                          {listMemberIds(list).length > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                              <UsersIcon aria-hidden="true" className="size-3.5" />
+                              {`compartilhada com ${plural(listMemberIds(list).length, "pessoa", "pessoas")}`}
+                            </span>
+                          )}
+                        </CardTitle>
                         <CardDescription>
                           {`${plural(list.items.length, "item", "itens")} · previsto ${formatCurrencyBRL(forecast.total)}`}
                           {forecast.missingCount > 0 &&
@@ -277,7 +338,7 @@ export default function GroceryPage() {
             <AlertDialogTitle>Excluir lista?</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDelete
-                ? `"${pendingDelete.name}" será removida. ${pendingDelete.status === "concluida" ? "O lançamento e o histórico de preços da compra continuam." : ""}`
+                ? `"${pendingDelete.name}" será removida${listMemberIds(pendingDelete).length > 0 ? " também para quem participa dela" : ""}. ${pendingDelete.status === "concluida" ? "O lançamento e o histórico de preços da compra continuam." : ""}`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>

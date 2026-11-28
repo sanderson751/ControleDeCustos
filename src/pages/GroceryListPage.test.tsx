@@ -17,6 +17,14 @@ import {
   subscribeToProducts,
   updateListItems,
 } from "@/services/groceryService";
+import {
+  cancelInvite,
+  inviteToList,
+  leaveList,
+  removeMember,
+  subscribeToList,
+  subscribeToListInvites,
+} from "@/services/groceryShareService";
 import { makeBudget, makeCostEntry, makeProfile } from "@/test/factories";
 import { renderWithRouter } from "@/test/render";
 
@@ -34,6 +42,14 @@ vi.mock("@/services/groceryService", () => ({
   updateListItems: vi.fn(),
   completeList: vi.fn(),
   findPurchaseByReceiptKey: vi.fn(),
+}));
+vi.mock("@/services/groceryShareService", () => ({
+  subscribeToList: vi.fn(),
+  subscribeToListInvites: vi.fn(),
+  inviteToList: vi.fn(),
+  cancelInvite: vi.fn(),
+  removeMember: vi.fn(),
+  leaveList: vi.fn(),
 }));
 vi.mock("@/lib/receiptReader", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -664,6 +680,192 @@ describe("GroceryListPage - foto da comanda", () => {
     await user.upload(within(dialog).getByLabelText("Foto da comanda"), new File(["x"], "b.jpg", { type: "image/jpeg" }));
     await waitFor(() =>
       expect(mockedNotify).toHaveBeenCalledWith("error", "Não foi possível ler a foto da comanda. Preencha os valores manualmente."),
+    );
+  });
+});
+
+describe("GroceryListPage - compartilhamento", () => {
+  beforeEach(() => {
+    vi.mocked(updateListItems).mockResolvedValue(undefined);
+    vi.mocked(createProduct).mockReturnValue({ id: "novo", written: Promise.resolve() });
+    vi.mocked(listMonthCosts).mockResolvedValue([]);
+    vi.mocked(listMonthBudgets).mockResolvedValue([]);
+    vi.mocked(listRecurringBudgets).mockResolvedValue([]);
+    vi.mocked(subscribeToListInvites).mockImplementation((_owner, _list, onData) => {
+      onData([]);
+      return () => undefined;
+    });
+  });
+
+  function setupShared(list: GroceryList = { ...LIST, ownerId: "uid-ana", ownerName: "Ana", memberIds: ["uid-standard"] }) {
+    vi.mocked(useSession).mockReturnValue({
+      profile: makeProfile("standard"),
+      firebaseUser: { email: "standard@exemplo.com", emailVerified: true } as never,
+    });
+    vi.mocked(subscribeToProducts).mockImplementation((_uid, onData) => {
+      onData([ARROZ, CAFE]);
+      return () => undefined;
+    });
+    vi.mocked(subscribeToList).mockImplementation((_owner, _id, onData) => {
+      onData(list);
+      return () => undefined;
+    });
+    return renderWithRouter(
+      <Routes>
+        <Route path="/grocery/compartilhada/:ownerId/:listId" element={<GroceryListPage />} />
+        <Route path="/grocery" element={<p>tela mercado</p>} />
+      </Routes>,
+      { route: `/grocery/compartilhada/uid-ana/${list.id}` },
+    );
+  }
+
+  it("participante monta a lista no caminho do dono, sem conclusao nem orcamento", async () => {
+    const { user } = setupShared();
+
+    expect(screen.getByText("Lista de Ana")).toBeInTheDocument();
+    expect(subscribeToProducts).toHaveBeenCalledWith("uid-ana", expect.any(Function), expect.any(Function));
+    expect(subscribeToList).toHaveBeenCalledWith("uid-ana", "l1", expect.any(Function), expect.any(Function));
+    expect(subscribeToLists).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Concluir compra" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Compartilhar/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/do orçamento/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Modo mercado" })).toHaveAttribute("href", "/grocery/compartilhada/uid-ana/l1/shop");
+
+    await user.click(within(row("Café")).getByRole("checkbox"));
+    expect(updateListItems).toHaveBeenLastCalledWith("uid-ana", "l1", expect.any(Array), expect.any(Array), []);
+
+    const addForm = screen.getByRole("form", { name: "Adicionar item" });
+    await user.type(within(addForm).getByLabelText("Produto"), "Feijão");
+    await user.click(within(addForm).getByRole("button", { name: "Adicionar" }));
+    await waitFor(() => expect(createProduct).toHaveBeenCalledWith("uid-ana", expect.objectContaining({ name: "Feijão" })));
+  });
+
+  it("participante sai da lista", async () => {
+    vi.mocked(leaveList).mockResolvedValue(undefined);
+    const { user } = setupShared();
+
+    await user.click(screen.getByRole("button", { name: "Sair da lista" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Sair da lista?" });
+    expect(confirm).toHaveTextContent("Para voltar, Ana precisa convidar você de novo.");
+    expect(leaveList).not.toHaveBeenCalled();
+    await user.click(within(confirm).getByRole("button", { name: "Sair" }));
+
+    await waitFor(() =>
+      expect(leaveList).toHaveBeenCalledWith("uid-ana", "l1", expect.objectContaining({ uid: "uid-standard", email: "standard@exemplo.com" })),
+    );
+    expect(await screen.findByText("tela mercado")).toBeInTheDocument();
+    expect(mockedNotify).toHaveBeenCalledWith("success", 'Você saiu da lista "Feira de sábado".');
+  });
+
+  it("sem acesso (removido pelo dono): mensagem em vez da lista", () => {
+    vi.mocked(useSession).mockReturnValue({ profile: makeProfile("standard"), firebaseUser: { email: "s@x.com" } as never });
+    vi.mocked(subscribeToProducts).mockImplementation(() => () => undefined);
+    vi.mocked(subscribeToList).mockImplementation((_owner, _id, _onData, onError) => {
+      onError(Object.assign(new Error("denied"), { code: "permission-denied" }));
+      return () => undefined;
+    });
+    renderWithRouter(
+      <Routes>
+        <Route path="/grocery/compartilhada/:ownerId/:listId" element={<GroceryListPage />} />
+      </Routes>,
+      { route: "/grocery/compartilhada/uid-ana/l1" },
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Você não participa mais desta lista (saiu, foi removido ou a lista foi excluída).",
+    );
+  });
+
+  it("dono remove participante de lista concluida (sem convites novos)", async () => {
+    vi.mocked(removeMember).mockResolvedValue(undefined);
+    const { user } = setup("standard", {
+      ...LIST,
+      status: "concluida",
+      completedAt: now,
+      purchaseId: "g1",
+      paidTotal: 50,
+      memberIds: ["uid-bia"],
+      members: { "uid-bia": { name: "Bia", email: "bia@exemplo.com" } },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Compartilhada (1)" }));
+    const dialog = await screen.findByRole("dialog", { name: "Compartilhar lista" });
+    expect(within(dialog).queryByLabelText("E-mail")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Remover Bia da lista" }));
+    await waitFor(() =>
+      expect(removeMember).toHaveBeenCalledWith("uid-standard", "l1", { uid: "uid-bia", email: "bia@exemplo.com" }),
+    );
+  });
+
+  it("dono cancela convite; sem sinal nao altera participantes", async () => {
+    vi.mocked(subscribeToListInvites).mockImplementation((_owner, _list, onData) => {
+      onData([
+        {
+          id: "uid-standard_l1_caio@exemplo.com",
+          ownerId: "uid-standard",
+          ownerName: "Eu",
+          ownerEmail: "standard@exemplo.com",
+          listId: "l1",
+          listName: "Feira de sábado",
+          email: "caio@exemplo.com",
+          status: "pendente",
+          memberUid: null,
+          createdAt: now,
+        },
+      ]);
+      return () => undefined;
+    });
+    vi.mocked(cancelInvite).mockResolvedValue(undefined);
+    const { user } = setup();
+    await user.click(screen.getByRole("button", { name: "Compartilhar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Compartilhar lista" });
+
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar convite para caio@exemplo.com" }));
+      expect(cancelInvite).not.toHaveBeenCalled();
+      expect(mockedNotify).toHaveBeenCalledWith("warning", "Sem conexão: conecte-se para alterar quem participa da lista.");
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar convite para caio@exemplo.com" }));
+    await waitFor(() => expect(cancelInvite).toHaveBeenCalledWith("uid-standard_l1_caio@exemplo.com"));
+    expect(mockedNotify).toHaveBeenCalledWith("success", "Convite para caio@exemplo.com cancelado.");
+  });
+
+  it("dono convida por e-mail e remove participante", async () => {
+    vi.mocked(inviteToList).mockResolvedValue(undefined);
+    vi.mocked(removeMember).mockResolvedValue(undefined);
+    const { user } = setup("standard", {
+      ...LIST,
+      memberIds: ["uid-bia"],
+      members: { "uid-bia": { name: "Bia", email: "bia@exemplo.com" } },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Compartilhada (1)" }));
+    const dialog = await screen.findByRole("dialog", { name: "Compartilhar lista" });
+
+    const email = within(dialog).getByLabelText("E-mail");
+    await user.type(email, "bia@exemplo.com");
+    await user.click(within(dialog).getByRole("button", { name: "Convidar" }));
+    expect(mockedNotify).toHaveBeenCalledWith("warning", "Essa pessoa já participa da lista.");
+    expect(inviteToList).not.toHaveBeenCalled();
+
+    await user.clear(email);
+    await user.type(email, " Caio@Exemplo.com ");
+    await user.click(within(dialog).getByRole("button", { name: "Convidar" }));
+    await waitFor(() =>
+      expect(inviteToList).toHaveBeenCalledWith(
+        expect.objectContaining({ uid: "uid-standard" }),
+        expect.objectContaining({ id: "l1" }),
+        "caio@exemplo.com",
+        null,
+      ),
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Remover Bia da lista" }));
+    await waitFor(() =>
+      expect(removeMember).toHaveBeenCalledWith("uid-standard", "l1", { uid: "uid-bia", email: "bia@exemplo.com" }),
     );
   });
 });

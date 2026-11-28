@@ -23,12 +23,19 @@
 
 ## D2 — convites e lista compartilhada
 
-- [ ] Coleção `groceryInvites`, campos de membros na lista e `groceryMembers`, com regras e testes.
-- [ ] Índice de grupo de coleções para `memberIds`.
-- [ ] Confirmação de e-mail para contas de e-mail e senha.
-- [ ] Diálogo Compartilhar (dono), convites e "Compartilhadas comigo" (Mercado), sair da lista.
-- [ ] Rotas da lista compartilhada (lista e modo mercado) em modo participante.
-- [ ] E2E com dois usuários: convidar, aceitar, editar em tempo real, remover acesso.
+- [x] Regras puras (`groceryShareRules`): e-mail, id do convite, validação do convite, acesso ao catálogo.
+- [x] Coleção `groceryInvites`, campos de membros na lista e `groceryMembers`, com regras.
+- [x] Testes de regras (`tests/rules/groceryShare.rules.test.ts`): convite, leitura, aceite, intrusos,
+  e-mail não confirmado, guest, sair/remover, lista concluída.
+- [x] Índice de grupo de coleções para `memberIds`.
+- [x] Confirmação de e-mail (`sendVerificationEmail`, `refreshEmailVerification`).
+- [x] Serviço `groceryShareService` e limpeza ao excluir lista, com testes.
+- [x] Diálogo Compartilhar (dono), convites e "Compartilhadas comigo" (Mercado), sair da lista.
+- [x] Rotas da lista compartilhada (lista e modo mercado) em modo participante, com testes de tela.
+- [x] E2E com dois usuários: convidar, confirmar e-mail, aceitar, editar em tempo real, remover acesso.
+- [x] Revisão do qa-engineer e correções (participante não trava a própria remoção; convite antigo não
+  reabre a lista; id com o dono e `ownerEmail`; limpeza da exclusão sem perder acessos; mensagens
+  específicas; lista concluída com remover/cancelar; ações exigem conexão; confirmação ao sair).
 
 ## Definicao de pronto
 
